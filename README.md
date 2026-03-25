@@ -185,4 +185,4 @@ Found that CLR transformation combined with ML algorithms is effective for geoch
  
 **Iwamori, H. et al. (2017).** Classification of geochemical data based on multivariate statistical analyses. *Geochemistry, Geophysics, Geosystems*, 18(3), 994-1012. https://doi.org/10.1002/2016GC006663
  
-**Wadoux, A.M.J.-C., Heuvelink, G.B.M., de Bruin, S., & Brus, D.J. (2020).** Spatial cross-validation is not the right way to evaluate map accuracy. *Ecological Modelling*, 457, 109692.
+**Wadoux, A.M.J.-C., Heuvelink, G.B.M., de Bruin, S., & Brus, D.J. (2020).** Spatial cross-validation is not the right way to evaluate map accuracy. *Ecological Modelling*, 457, 109692. https://alexandrewadoux.github.io/assets/pdf/Wadoux_et_al_2021.pdf

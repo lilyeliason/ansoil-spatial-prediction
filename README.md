@@ -175,7 +175,7 @@ Demonstrated that randomized hyperparameter search finds near-optimal configurat
  
 Establishes that log-ratio transforms are necessary for meaningful analysis of compositional geochemical data. Supports our CLR transforms for leachate data.
  
-**Zhou, S., Zhou, K., Wang, J., Yang, G., & Wang, S. (2017).** Application of cluster analysis to geochemical compositional data. *Frontiers of Earth Science*, 12(3), 491-505.
+**Zhou, S., Zhou, K., Wang, J., Yang, G., & Wang, S. (2017).** Application of cluster analysis to geochemical compositional data. *Frontiers of Earth Science*, 12(3), 491-505. https://link.springer.com/article/10.1007/s11707-017-0682-8
  
 Found that CLR transformation combined with ML algorithms is effective for geochemical compositional data analysis.
  

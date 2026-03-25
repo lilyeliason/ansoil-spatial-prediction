@@ -1,6 +1,8 @@
 # ANSOIL Spatial Prediction
 
-Machine learning pipeline for predicting geochemical properties in Antarctic ice-free regions from spatial environmental maps. 
+Machine learning pipeline for predicting geochemical properties in Antarctic ice-free regions from spatial environmental maps.
+
+This set up is for our run with all combinations for Random Forest and XGBoost
 
 ## Setup
 

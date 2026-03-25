@@ -157,15 +157,15 @@ Establishes that elevation and coastal distance drive soil chemistry in the Tran
  
 SCORPAN framework for digital soil mapping. Our predictor set (climate, relief, parent material, spatial position) follows this framework, as do Siqueira et al. (2023, 2024).
  
-**Breiman, L. (2001).** Random Forests. *Machine Learning*, 45, 5-32.
+**Breiman, L. (2001).** Random Forests. *Machine Learning*, 45, 5-32. https://link.springer.com/article/10.1023/A:1010933404324
  
 Algorithm reference. Establishes that RF is scale-invariant (no normalization needed) and provides built-in feature importance via impurity decrease.
  
-**Chen, T. & Guestrin, C. (2016).** XGBoost: A scalable tree boosting system. *Proceedings of the 22nd ACM SIGKDD*, 785-794.
+**Chen, T. & Guestrin, C. (2016).** XGBoost: A scalable tree boosting system. *Proceedings of the 22nd ACM SIGKDD*, 785-794. https://dl.acm.org/doi/10.1145/2939672.2939785
  
 Algorithm reference for XGBoost (gradient boosted decision trees).
  
-**Bergstra, J. & Bengio, Y. (2012).** Random search for hyper-parameter optimization. *Journal of Machine Learning Research*, 13, 281-305.
+**Bergstra, J. & Bengio, Y. (2012).** Random search for hyper-parameter optimization. *Journal of Machine Learning Research*, 13, 281-305. https://www.jmlr.org/papers/volume13/bergstra12a/bergstra12a.pdf
  
 Demonstrated that randomized hyperparameter search finds near-optimal configurations with far fewer evaluations than grid search. Supports our use of 300-500 random combos rather than exhaustive grid search.
  

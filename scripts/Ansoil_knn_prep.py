@@ -1,101 +1,40 @@
 """
-=============================================================================
-ANTARCTIC SOIL GEOCHEMISTRY — DATA PREPARATION SCRIPT
-=============================================================================
+ANTARCTIC SOIL GEOCHEMISTRY - Data Preparation
+===============================================
 
-QUICK START GUIDE
-=================
+This script prepares the raw data for all models. Run it ONCE to produce
+the input files that KNN, RF, and XGBoost all depend on.
 
-  THIS SCRIPT PREPARES THE RAW DATA FOR ALL MODELS. You only need to
-  run it ONCE. It produces the input files that KNN, RF, and XGBoost
-  all depend on. If those files already exist (they should — Lily has
-  already run this), you can skip this script entirely.
+If the output files already exist, you can skip this script entirely.
 
-  1. INSTALL REQUIRED PACKAGES (run once in terminal):
+Setup:
+    pip install numpy pandas scikit-learn
 
-         pip install numpy pandas scikit-learn
+Input files (place in same folder as this script):
+    Ansoil_data_cleaned_10162025(complete_cleaned).csv  - Master dataset (171 samples)
+    ansoil_full_grid.csv                                - Prediction grid (~15,000 points)
 
-  2. PLACE THESE 2 RAW DATA FILES IN THE SAME FOLDER AS THIS SCRIPT:
+Output files (8 total):
+    ansoil_targets.csv          - 67 soil properties to predict
+    ansoil_predictors.csv       - 22 environmental features per sample
+    ansoil_sample_index.csv     - Sample locations (defines CV folds)
+    ansoil_log_targets.csv      - Transform lookup table
+    ansoil_grid_prepared.csv    - Environmental features for grid points
+    ansoil_distance_matrix.csv  - 171x171 sample distances (KNN only)
+    ansoil_grid_distances.csv   - Grid-to-sample distances (KNN only)
+    ansoil_scaler_params.csv    - Standardization parameters
 
-     File                                              What it is
-     ─────────────────────────────────────────────     ────────────────────────
-     Ansoil_data_cleaned_10162025(complete_cleaned).csv   The master dataset.
-                                                          171 Antarctic soil
-                                                          samples with all
-                                                          measured chemistry
-                                                          and site metadata.
+Run:
+    python Ansoil_knn_prep.py
 
-     ansoil_full_grid.csv                                 The prediction grid.
-                                                          ~15,000 points across
-                                                          Antarctic ice-free
-                                                          areas where we want
-                                                          to make spatial
-                                                          predictions.
+Takes ~10-20 minutes (most time spent computing distance matrices).
 
-     These files live in the "data/" folder in Lily's directory structure.
-
-  3. RUN IT:
-
-         python Ansoil_knn_prep.py
-
-     Takes about 10-20 minutes (most time spent computing distance
-     matrices: 171x171 training + 15769x171 grid = ~2.7 million distances).
-
-  4. OUTPUT FILES (8 files, created in the same folder):
-
-     ansoil_targets.csv             Target variables to predict (67 columns)
-     ansoil_predictors.csv          Environmental features for each sample
-     ansoil_sample_index.csv        Sample IDs and location groupings
-     ansoil_log_targets.csv         Lookup table for log transforms
-     ansoil_grid_prepared.csv       Environmental features for grid points
-     ansoil_distance_matrix.csv     171x171 sample-to-sample distances (KNN only)
-     ansoil_grid_distances.csv      Grid-to-sample distances (KNN only)
-     ansoil_scaler_params.csv       Standardization parameters
-
-     The first 5 files are used by ALL models (KNN, RF, XGBoost).
-     The distance matrices are only used by KNN.
-
-  5. AFTER THIS SCRIPT FINISHES:
-
-     You can run any of the model scripts:
-       - Ansoil_knn_model.py        (KNN — baseline model)
-       - Ansoil_rf_model.py         (Random Forest)
-       - ansoil_xgb_model_v9_noes.py (XGBoost, leak-free version)
-
-     For the RF and XGBoost runs on the fast computer, you do NOT need
-     to re-run this prep script. Just copy the 5 shared output files
-     (targets, predictors, sample_index, log_targets, grid_prepared)
-     into the same folder as the model scripts.
-
-
-WHAT THIS SCRIPT DOES (for those who want to understand it)
-===========================================================
-
-  Step 1: Loads the master CSV, filters out invalid samples, computes
-          projected coordinates (lat/lon to Antarctic Polar Stereographic
-          EPSG:3031), assigns lithology codes and region flags.
-
-  Step 2: Creates transformed versions of target variables:
-          - log1p transforms for 11 trace metals (near-zero safe)
-          - log transforms for 13 dissolved-ion "dual-test" candidates
-            (both raw and log versions are kept — the model scripts
-            test both and pick whichever predicts better)
-          - CLR (centered log-ratio) transforms for compositional
-            leachate data (three extraction sets: 1hr, 24hr, total)
-
-  Step 3: Z-score normalizes the 8 continuous predictor features
-          (coordinates, elevation, coast distance, climate, slope, aspect).
-          The scaler is fit on training data only.
-
-  Step 4: Builds pairwise distance matrices using a custom weighted
-          distance function that incorporates continuous features,
-          lithology dissimilarity (a hand-built 9x9 matrix encoding
-          geochemical similarity between rock types), and region flags.
-          This is used by the KNN model only.
-
-  Step 5: Saves all output files.
-
-=============================================================================
+What it does:
+    1. Loads raw data, projects coordinates to EPSG:3031 (Antarctic Polar Stereographic)
+    2. Creates log and CLR transforms for appropriate target variables
+    3. Z-score normalizes continuous predictor features
+    4. Builds pairwise distance matrices (for KNN model only)
+    5. Saves all output files
 """
 
 import math
@@ -247,7 +186,7 @@ LOG_TARGETS_LOG1P = [
     "digest_mg_kg_tl1908",
 ]
 
-# v6 dual-test candidates — model both raw AND log(), keep the better R².
+# Dual-test candidates — model both raw AND log(), keep the better R².
 # All confirmed strictly positive (min > 0 in training data) so log() is safe.
 # Back-transform if log wins: exp(prediction).
 #

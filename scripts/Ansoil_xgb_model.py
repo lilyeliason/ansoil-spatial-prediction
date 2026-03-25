@@ -1,132 +1,44 @@
 """
-=============================================================================
-ANTARCTIC SOIL GEOCHEMISTRY — XGBoost MODEL (LEAK-FREE, v9)
-=============================================================================
+ANTARCTIC SOIL GEOCHEMISTRY - XGBoost Model
+============================================
 
-QUICK START GUIDE
-=================
+Predicts 67 Antarctic soil properties from 22 environmental features
+using XGBoost (gradient boosted trees) with Leave-One-Location-Out
+cross-validation. No early stopping is used, so all R-squared estimates
+are fully unbiased.
 
-  1. INSTALL REQUIRED PACKAGES (run once in terminal):
+Setup:
+    pip install numpy pandas scikit-learn xgboost
+    On macOS also: brew install libomp
 
-         pip install numpy pandas scikit-learn xgboost
+Input files (reads from ../data/):
+    ansoil_targets.csv          - 67 soil properties to predict (171 samples)
+    ansoil_predictors.csv       - 22 environmental features per sample
+    ansoil_sample_index.csv     - Sample locations (defines 28 CV folds)
+    ansoil_log_targets.csv      - Transform lookup table
+    ansoil_grid_prepared.csv    - 15,769 prediction grid points
 
-     On macOS, xgboost also needs the OpenMP library:
-         brew install libomp
-     (Requires Homebrew: https://brew.sh)
+Output files (written to current directory):
+    ansoil_model_results_xgb.csv          - R-squared per target (main results)
+    ansoil_cv_predictions_xgb.csv         - Predicted vs actual per sample
+    ansoil_grid_predictions_xgb.csv       - Spatial predictions at grid points
+    ansoil_feature_importance_xgb.csv     - Feature importance per target
+    ansoil_transform_comparison_xgb.csv   - Raw vs log transform results
+    ansoil_model_comparison_xgb.csv       - KNN vs RF vs XGBoost comparison
+    ansoil_models_xgb/                    - Saved model files
 
-     On Linux or Windows with GPU, xgboost installs cleanly with pip alone.
+How to run:
+    cd scripts
+    python Ansoil_xgb_model.py
 
-  2. PLACE THESE 5 DATA FILES IN THE SAME FOLDER AS THIS SCRIPT:
+    *** CHANGE THIS FOR EACH RUN: 42, 73, 123, 7, 256 ***
+    SEED = 42
 
-     File                          What it is
-     ─────────────────────────     ──────────────────────────────────────
-     ansoil_targets.csv            Target variables (171 rows × 83 cols).
-                                   Each column is a soil property to predict
-                                   (pH, metals, isotopes, etc). Rows = samples.
+    After each run, move output files to a subfolder (e.g., ../results/xgb_seed42/)
+    before changing the seed and running again.
 
-     ansoil_predictors.csv         Environmental features (171 rows × 18 cols).
-                                   Contains the predictor variables for each
-                                   sample: coordinates, elevation, distance to
-                                   coast, climate (RACMO), slope, aspect,
-                                   lithology class, and region flags.
-
-     ansoil_sample_index.csv       Sample metadata (171 rows × 10 cols).
-                                   Links each sample to its sampling location
-                                   (e.g., "Shackleton Glacier"). This is what
-                                   defines the cross-validation folds — all
-                                   samples from the same location are held out
-                                   together.
-
-     ansoil_log_targets.csv        Transform lookup table (24 rows × 5 cols).
-                                   Tells the script which targets need log
-                                   transforms and which get the "dual test"
-                                   (try both raw and log, keep the better one).
-
-     ansoil_grid_prepared.csv      Prediction grid (15,769 rows × 17 cols).
-                                   Environmental features for each grid point
-                                   where we want spatial predictions. Same
-                                   columns as predictors.csv but for unsampled
-                                   locations across Antarctica.
-
-     These files are all produced by Ansoil_knn_prep.py (the prep pipeline).
-     They live in the "prepared/" folder.
-
-     OPTIONAL — for comparison with other models, also place these nearby:
-       ansoil_model_results_v6.csv       (KNN results)
-       ansoil_model_results_v7_rf.csv    (RF results)
-       ansoil_model_results_v8_xgb.csv   (XGBoost v8 results, for bias check)
-
-  3. CONFIGURE THE RUN — edit the values marked ★ below:
-
-     ★ SEED = 42 (Line 197)                 Change for each run (e.g., 42, 123, 73, 7, 256)
-                                                - After running, change SEED = 42 to a different number,
-                                                - Rename or move the output files to a subfolder
-                                                - Re-run with a different seed.
-     ★ N_RANDOM_SEARCH = 15 (Line 185)       Number of hyperparameter combos to try.
-                                                - MacBook Air:  15   (~10–15 min total)
-                                                - Fast desktop: 300–500  (~2–6 hours total)
-                                                - The full grid has 6×4×4×4×3×3×3 = 7,776
-                                                  combos. Set to 7776 for true exhaustive
-                                                  search (may take 12+ hours)
-
-     Also for a fast multi-core machine, change n_jobs in FIXED_PARAMS:
-       Line 182:  "n_jobs": 1   →   "n_jobs": -1    (uses all CPU cores)
-
-  4. RUN IT:
-
-         cd /path/to/folder/with/data/files
-         python Ansoil_xgb_model.py
-
-     It prints progress as it goes. Each target shows R², learning rate,
-     tree depth, and number of boosting rounds selected.
-
-  5. OUTPUT FILES (created in the same folder):
-
-     ansoil_model_results_xgb.csv         Main results: R² per target
-     ansoil_cv_predictions_xgb.csv         Predicted vs actual
-     ansoil_grid_predictions_xgb.csv       Spatial grid predictions
-     ansoil_feature_importance_xgb.csv     Feature importance per target
-     ansoil_transform_comparison_xgb.csv   Dual-test raw vs log results
-     ansoil_model_comparison_v9.csv                 Comparison: KNN vs RF vs XGB
-     ansoil_bias_assessment_v9.csv                  v8 vs v9 bias per target
-     ansoil_models_xgb/                     Saved model files (.pkl)
-
-  6. FOR EXHAUSTIVE SEARCH ON A FAST MACHINE:
-
-     Change these values:
-       N_RANDOM_SEARCH = 500       (or 7776 for true exhaustive)
-       "n_jobs": -1                (in the FIXED_PARAMS dict, ~line 101)
-
-     Then run 5 seeds. Expected total time: 10–30 hours depending on machine.
-     This will find the best possible hyperparameters for every target.
-
-
-WHAT THIS SCRIPT DOES
-======================
-
-  This script predicts 67 Antarctic soil properties from 22 environmental
-  features using XGBoost (gradient boosted decision trees).
-
-  HOW IT WORKS:
-  - XGBoost builds decision trees SEQUENTIALLY. Each new tree tries to
-    correct the errors made by all previous trees combined. This is
-    different from Random Forest, which builds trees independently.
-  - The number of trees (n_estimators) is tuned as a regular hyperparameter
-    alongside learning rate, tree depth, regularization strength, etc.
-  - The test fold is used ONLY for evaluation AFTER training is complete.
-
-  CROSS-VALIDATION: Leave-One-Location-Out (LOLO) with 28 folds.
-  Same folds as the RF model for fair comparison.
-
-  FEATURES: Same 22 features as the RF model.
-
-  DUAL-TEST TRANSFORMS: Same framework as RF — for 13 dissolved-ion
-  targets, both raw and log versions are tried.
-
-  COMPARISON: The script automatically compares against KNN and RF if those
-  CSV files are present in the same folder.
-
-=============================================================================
+    N_RANDOM_SEARCH and n_jobs are already configured for a fast machine
+    (500 combos, all CPU cores). Expected runtime: ~2-6 hours per seed.
 """
 
 import math

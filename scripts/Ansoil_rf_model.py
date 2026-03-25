@@ -1,110 +1,41 @@
 """
-=============================================================================
-ANTARCTIC SOIL GEOCHEMISTRY — RANDOM FOREST MODEL
-=============================================================================
+ANTARCTIC SOIL GEOCHEMISTRY - Random Forest Model
+===================================================
 
-QUICK START GUIDE
-=================
+Predicts 67 Antarctic soil properties from 22 environmental features
+using Random Forest regression with Leave-One-Location-Out cross-validation.
 
-  1. INSTALL REQUIRED PACKAGES (run once in terminal):
+Setup:
+    pip install numpy pandas scikit-learn
 
-         pip install numpy pandas scikit-learn
+Input files (reads from ../data/):
+    ansoil_targets.csv          - 67 soil properties to predict (171 samples)
+    ansoil_predictors.csv       - 22 environmental features per sample
+    ansoil_sample_index.csv     - Sample locations (defines 28 CV folds)
+    ansoil_log_targets.csv      - Transform lookup table
+    ansoil_grid_prepared.csv    - 15,769 prediction grid points
 
-  2. PLACE THESE 5 DATA FILES IN THE SAME FOLDER AS THIS SCRIPT:
+Output files (written to current directory):
+    ansoil_model_results_rf.csv          - R-squared per target (main results)
+    ansoil_cv_predictions_rf.csv         - Predicted vs actual per sample
+    ansoil_grid_predictions_rf.csv       - Spatial predictions at grid points
+    ansoil_feature_importance_rf.csv     - Feature importance per target
+    ansoil_transform_comparison_rf.csv   - Raw vs log transform results
+    ansoil_model_comparison_knn_vs_rf.csv - KNN vs RF comparison
+    ansoil_models_rf/                    - Saved model files
 
-     File                          What it is
-     ─────────────────────────     ──────────────────────────────────────
-     ansoil_targets.csv            Target variables (171 rows × 83 cols).
-                                   Each column is a soil property to predict
-                                   (pH, metals, isotopes, etc). Rows = samples.
+How to run:
+    cd scripts
+    python Ansoil_rf_model.py
 
-     ansoil_predictors.csv         Environmental features (171 rows × 18 cols).
-                                   Contains the predictor variables for each
-                                   sample: coordinates, elevation, distance to
-                                   coast, climate (RACMO), slope, aspect,
-                                   lithology class, and region flags.
+    *** CHANGE THIS FOR EACH RUN: 42, 73, 123, 7, 256 ***
+    SEED = 42
 
-     ansoil_sample_index.csv       Sample metadata (171 rows × 10 cols).
-                                   Links each sample to its sampling location
-                                   (e.g., "Shackleton Glacier"). This is what
-                                   defines the cross-validation folds — all
-                                   samples from the same location are held out
-                                   together.
+    After each run, move output files to a subfolder (e.g., ../results/rf_seed42/)
+    before changing the seed and running again.
 
-     ansoil_log_targets.csv        Transform lookup table (24 rows × 5 cols).
-                                   Tells the script which targets need log
-                                   transforms and which get the "dual test"
-                                   (try both raw and log, keep the better one).
-
-     ansoil_grid_prepared.csv      Prediction grid (15,769 rows × 17 cols).
-                                   Environmental features for each grid point
-                                   where we want spatial predictions. Same
-                                   columns as predictors.csv but for unsampled
-                                   locations across Antarctica.
-
-     These files are all produced by Ansoil_knn_prep.py (the prep pipeline).
-     They live in the "prepared/" folder.
-
-     OPTIONAL — for comparison with other models, also place these nearby:
-       ansoil_model_results_v6.csv   (KNN results, in results/knn_v6/)
-
-  3. CONFIGURE THE RUN — edit the SEED values:
-
-     ★ SEED = 42 (Line 174)                  Change for each run (e.g., 42, 123, 73, 7, 256)
-                                                - After running, change SEED = 42 to a different number,
-                                                - Rename or move the output files to a subfolder
-                                                - Re-run with a different seed.
-  4. RUN IT:
-
-         cd /path/to/folder/with/data/files
-         python Ansoil_rf_model.py
-
-     It prints progress as it goes. Each target shows its R² and a bar chart.
-     Total time depends on N_RANDOM_SEARCH and the operating system.
-
-  5. OUTPUT FILES (created in the same folder):
-
-     ansoil_model_results_v7_rf.csv             Main results: R² per target
-     ansoil_cv_predictions_v7_rf.csv            Predicted vs actual for every sample
-     ansoil_grid_predictions_v7_rf.csv          Predictions at all 15,769 grid points
-     ansoil_feature_importance_v7_rf.csv        Which features matter for each target
-     ansoil_model_comparison_knn_vs_rf.csv      Side-by-side comparison with KNN
-     ansoil_models_v7_rf/                       Saved model files (.pkl)
-
-
-WHAT THIS SCRIPT DOES
-======================
-
-  This script predicts 67 Antarctic soil properties from 22 environmental
-  features using a Random Forest regression model.
-
-  CROSS-VALIDATION: Leave-One-Location-Out (LOLO) with 28 folds.
-  Each fold holds out ALL samples from one sampling location, so the model
-  is always tested on a location it has never seen. This gives honest
-  estimates of how well the model would predict at a brand new site.
-
-  FEATURES (22 total):
-    - 7 continuous: projected X/Y, elevation, distance to coast, precip, temp, slope
-    - 2 cyclic: aspect encoded as sin/cos (so 359° and 1° are close)
-    - 9 one-hot: lithology classes (a, b, c, d, g, n, p, s, w)
-    - 4 binary: region flags (TM, SVL, NVL, NWAP)
-
-  HYPERPARAMETER TUNING: For each target, the script tries N_RANDOM_SEARCH
-  random combinations of (max_depth, min_samples_leaf, max_features,
-  max_samples) and picks whichever gives the highest R² in cross-validation.
-
-  DUAL-TEST TRANSFORMS: For 13 dissolved-ion targets, the script tries
-  both the raw values and log-transformed values and keeps whichever
-  produces a better R². Both results are reported for transparency.
-
-  FEATURE IMPORTANCE: After finding the best model for each target, the
-  script reports which features are most important (e.g., "elevation
-  drives δ15N", "lithology_a drives Na digest").
-
-  The script also auto-detects and fixes a unit mismatch in the grid file
-  where distance-to-coast was stored in meters instead of km.
-
-=============================================================================
+    N_RANDOM_SEARCH and n_jobs are already configured for a fast machine
+    (300 combos, all CPU cores). Expected runtime: ~1-4 hours per seed.
 """
 
 import math
@@ -155,7 +86,7 @@ EXCLUDE_TARGETS = [
 ]
 
 # For KNN comparison (optional — loads if the file exists)
-KNN_RESULTS_FILE = "ansoil_model_results_v6.csv"
+KNN_RESULTS_FILE = "../reference_results/ansoil_model_results_knn.csv"
 
 SEED = 42
 
@@ -227,9 +158,9 @@ def load_inputs():
     print("STEP 1  Load and validate inputs")
     print("=" * 70)
 
-    targets_df = pd.read_csv("ansoil_targets.csv")
-    pred_df = pd.read_csv("ansoil_predictors.csv")
-    index_df = pd.read_csv("ansoil_sample_index.csv")
+    targets_df = pd.read_csv("../data/ansoil_targets.csv")
+    pred_df = pd.read_csv("../data/ansoil_predictors.csv")
+    index_df = pd.read_csv("../data/ansoil_sample_index.csv")
 
     # Alignment check
     assert list(targets_df["sample_id"]) == list(pred_df["sample_id"]), (
@@ -248,7 +179,7 @@ def load_inputs():
     print(f"  Training samples:  {X_train.shape[0]}")
 
     # Log target lookup
-    log_lookup = pd.read_csv("ansoil_log_targets.csv")
+    log_lookup = pd.read_csv("../data/ansoil_log_targets.csv")
     established_log_info = {
         row["log_col"]: {
             "raw_col": row["raw_col"],
@@ -274,7 +205,7 @@ def load_inputs():
     has_grid = False
     X_grid, grid_ids = None, None
     try:
-        grid_df = pd.read_csv("ansoil_grid_prepared.csv")
+        grid_df = pd.read_csv("../data/ansoil_grid_prepared.csv")
 
         # ── FIX UNIT MISMATCH ─────────────────────────────────────────────
         # Grid dist_coast_scar_km is in meters in the raw grid file.
@@ -892,7 +823,7 @@ def run_all_models(
     # Feature importance
     imp_df = pd.DataFrame(all_importances)
     imp_df.to_csv("ansoil_feature_importance_rf.csv", index=False)
-    print(f"  ansoil_feature_importance_rf.csv     {imp_df.shape}")
+    print(f"  ansoil_feature_importance_rf.csv    {imp_df.shape}")
     print(f"  ansoil_models_rf/                    {len(model_summary)} .pkl files")
 
     # ======================================================================

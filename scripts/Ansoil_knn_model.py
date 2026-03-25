@@ -1,100 +1,35 @@
 """
-=============================================================================
-ANTARCTIC SOIL GEOCHEMISTRY — KNN MODEL (Baseline)
-=============================================================================
+ANTARCTIC SOIL GEOCHEMISTRY - KNN Model (Baseline)
+====================================================
 
-QUICK START GUIDE
-=================
+Baseline model using K-Nearest Neighbors with a precomputed environmental
+distance matrix. This does NOT need to be re-run. Results are already
+final and serve as a reference to show how much RF and XGBoost improve.
 
-  NOTE: This is the BASELINE model. It uses K-Nearest Neighbors with a
-  precomputed distance matrix. It does NOT need to be re-run on the fast
-  computer — the KNN results are already final and are used only as a
-  reference point to show how much RF and XGBoost improve over it.
+Setup:
+    pip install numpy pandas scikit-learn
 
-  If you do want to re-run it (e.g., to verify results):
+Input files (place in same folder):
+    ansoil_distance_matrix.csv  - 171x171 precomputed distance matrix
+    ansoil_grid_distances.csv   - Grid-to-sample distances (15769 x 171)
+    ansoil_targets.csv          - Target variables
+    ansoil_sample_index.csv     - Sample locations (defines CV folds)
+    ansoil_log_targets.csv      - Transform lookup table
 
-  1. INSTALL REQUIRED PACKAGES (run once in terminal):
+Output files:
+    ansoil_model_results_knn.csv          - R-squared per target (main results)
+    ansoil_cv_predictions_knn.csv         - Predicted vs actual per sample
+    ansoil_grid_predictions_knn.csv       - Spatial predictions at grid points
+    ansoil_transform_comparison_knn.csv   - Raw vs log transform results
+    ansoil_models_knn/                    - Saved model files
 
-         pip install numpy pandas scikit-learn
+Run:
+    python Ansoil_knn_model.py
 
-  2. PLACE THESE 5 DATA FILES IN THE SAME FOLDER AS THIS SCRIPT:
+Takes ~2-5 minutes. No seed needed (KNN is deterministic).
 
-     File                          What it is
-     ─────────────────────────     ──────────────────────────────────────
-     ansoil_distance_matrix.csv    Precomputed 171x171 distance matrix.
-                                   This encodes how "similar" each pair of
-                                   samples is based on their environmental
-                                   features (elevation, lithology, climate,
-                                   etc). Produced by Ansoil_knn_prep.py.
-
-     ansoil_grid_distances.csv     Distances from each grid prediction point
-                                   to each training sample (15769 x 171).
-                                   Also produced by Ansoil_knn_prep.py.
-
-     ansoil_targets.csv            Target variables (171 rows x 83 cols).
-
-     ansoil_sample_index.csv       Sample metadata (171 rows x 10 cols).
-                                   Defines which samples belong to which
-                                   sampling location (for LOLO-CV folds).
-
-     ansoil_log_targets.csv        Transform lookup table (24 rows x 5 cols).
-
-     The first two files are KNN-specific (distance matrices).
-     The last three are shared with RF and XGBoost.
-
-  3. RUN IT:
-
-         python Ansoil_knn_model.py
-
-     Takes about 2-5 minutes. No configuration needed — the KNN
-     hyperparameter search is small (14 combinations of k and weighting
-     scheme per target) and runs quickly.
-
-  4. OUTPUT FILES (created in the same folder):
-
-     ansoil_model_results_v6.csv          Main results: R² per target
-     ansoil_cv_predictions_v6.csv         Predicted vs actual per sample
-     ansoil_grid_predictions_v6.csv       Spatial grid predictions
-     ansoil_transform_comparison_v6.csv   Dual-test raw vs log results
-     ansoil_models_v6/                    Saved model files (.pkl)
-
-  5. NO SEED NEEDED:
-
-     Unlike RF and XGBoost, KNN is deterministic — there is no random
-     component, so running it again will always produce the same results.
-     You only need one run.
-
-
-WHAT THIS SCRIPT DOES (for those who want to understand it)
-===========================================================
-
-  This is the simplest of the three models. For each soil property:
-
-  1. It tries 14 combinations of K (number of neighbors: 3,5,7,9,11,15,20)
-     and weighting scheme (uniform vs distance-weighted).
-
-  2. Each combination is evaluated using Leave-One-Location-Out
-     cross-validation (LOLO-CV) with 28 folds — the same CV design
-     used by RF and XGBoost for fair comparison.
-
-  3. The combination with the lowest RMSE is selected.
-
-  4. The model predicts by averaging the target values of the K most
-     similar training samples (where "similar" is defined by the
-     precomputed environmental distance matrix).
-
-  KEY LIMITATION: The distance matrix uses manually assigned feature
-  weights (lithology=3.0, elevation=2.0, coordinates=0.15-0.25).
-  These weights were set by geochemical reasoning, NOT optimized by
-  the data. RF and XGBoost learn feature importance from the data,
-  which is one reason they outperform KNN.
-
-  RESULTS: 0 strong, 4 moderate, 30 weak, 33 unusable targets.
-  Mean R² = 0.038. Best = 0.362 (Ti digest). This is the baseline
-  that RF and XGBoost are compared against.
-
-=============================================================================
-
+Results: 0 strong, 4 moderate, 33 unusable. Mean R-squared = 0.038.
+This is the baseline that RF and XGBoost are compared against.
 """
 
 import math
@@ -109,7 +44,7 @@ from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.neighbors import KNeighborsRegressor
 
 warnings.filterwarnings("ignore")
-os.makedirs("ansoil_models_v6", exist_ok=True)
+os.makedirs("ansoil_models_knn", exist_ok=True)
 
 
 # =============================================================================
@@ -137,9 +72,9 @@ def load_inputs():
     print("STEP 1  Load and validate inputs")
     print("=" * 70)
 
-    D_train_df = pd.read_csv("ansoil_distance_matrix.csv", index_col=0)
-    targets_df = pd.read_csv("ansoil_targets.csv")
-    index_df = pd.read_csv("ansoil_sample_index.csv")
+    D_train_df = pd.read_csv("../prepared/ansoil_distance_matrix.csv", index_col=0)
+    targets_df = pd.read_csv("../prepared/ansoil_targets.csv")
+    index_df = pd.read_csv("../prepared/ansoil_sample_index.csv")
 
     assert list(D_train_df.index) == list(targets_df["sample_id"]), (
         "Row order mismatch: distance matrix vs targets"
@@ -151,7 +86,7 @@ def load_inputs():
 
     # ── Load log target lookup ────────────────────────────────────────────────
     try:
-        log_lookup = pd.read_csv("ansoil_log_targets.csv")
+        log_lookup = pd.read_csv("../prepared/ansoil_log_targets.csv")
 
         # Established log1p/log entries (dual_test=False): final transform known
         established_log_info = {
@@ -186,7 +121,7 @@ def load_inputs():
     # ── Grid distances ────────────────────────────────────────────────────────
     has_grid, D_grid, grid_ids = False, None, None
     try:
-        D_grid_df = pd.read_csv("ansoil_grid_distances.csv", index_col=0)
+        D_grid_df = pd.read_csv("../prepared/ansoil_grid_distances.csv", index_col=0)
         nan_mask = D_grid_df.isnull().any(axis=1)
         n_nan = nan_mask.sum()
         if n_nan > 0:
@@ -449,7 +384,7 @@ def model_one_target(
     }
 
     # Save model pickle
-    with open(f"ansoil_models_v6/{target}.pkl", "wb") as f:
+    with open(f"ansoil_models_knn/{target}.pkl", "wb") as f:
         pickle.dump(
             {
                 "model": final_knn,
@@ -698,30 +633,30 @@ def run_all_models(
     print("=" * 70)
 
     results_df = pd.DataFrame(model_summary).sort_values("cv_r2", ascending=False)
-    results_df.to_csv("ansoil_model_results_v6.csv", index=False)
-    print(f"  ansoil_model_results_v6.csv     {results_df.shape}")
+    results_df.to_csv("ansoil_model_results_knn.csv", index=False)
+    print(f"  ansoil_model_results_knn.csv     {results_df.shape}")
 
     dual_df = pd.DataFrame(dual_comparison).sort_values("r2_raw", ascending=False)
-    dual_df.to_csv("ansoil_transform_comparison_v6.csv", index=False)
-    print(f"  ansoil_transform_comparison_v6.csv  {dual_df.shape}")
+    dual_df.to_csv("ansoil_transform_comparison_knn.csv", index=False)
+    print(f"  ansoil_transform_comparison_knn.csv  {dual_df.shape}")
     print("    (raw_col, r2_raw, r2_log, selected_transform, delta_r2, winner_note)")
 
     oof_all = pd.concat(all_oof, ignore_index=True)
-    oof_all.to_csv("ansoil_cv_predictions_v6.csv", index=False)
-    print(f"  ansoil_cv_predictions_v6.csv    {oof_all.shape}")
+    oof_all.to_csv("ansoil_cv_predictions_knn.csv", index=False)
+    print(f"  ansoil_cv_predictions_knn.csv    {oof_all.shape}")
 
     if has_grid and grid_pred_cols:
         grid_out = pd.DataFrame({"grid_id": grid_ids})
         for col_label, arr in grid_pred_cols.items():
             grid_out[col_label] = arr
-        grid_out.to_csv("ansoil_grid_predictions_v6.csv", index=False)
+        grid_out.to_csv("ansoil_grid_predictions_knn.csv", index=False)
         print(
-            f"  ansoil_grid_predictions_v6.csv  "
+            f"  ansoil_grid_predictions_knn.csv  "
             f"({len(grid_ids)} rows x {len(grid_pred_cols) + 1} cols)"
         )
         print("    All values in ORIGINAL units (back-transformed where applicable)")
 
-    print(f"  ansoil_models_v6/               {len(model_summary)} .pkl files")
+    print(f"  ansoil_models_knn/              {len(model_summary)} .pkl files")
 
     # ==========================================================================
     # RESULTS SUMMARY

@@ -74,7 +74,7 @@ PARAM_GRID = {
 
 # Number of random combos to evaluate per target
 # 8 combos × 28 folds = 224 RF fits per target (~5-10s on a MacBook Air)
-N_RANDOM_SEARCH = 300
+N_RANDOM_SEARCH = 54
 
 # Minimum R² to produce grid predictions
 MIN_R2_FOR_GRID = 0.0

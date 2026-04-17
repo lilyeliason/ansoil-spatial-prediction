@@ -1,0 +1,14 @@
+raw_col,r2_raw,r2_log,selected_transform,delta_r2,winner_note
+digest_mg_kg_mg2852,0.413011,0.324947,raw,-0.088064,
+digest_mg_kg_na5895,0.399007,0.403802,log,0.004795,Na: log won
+digest_mg_kg_ca3158,0.167712,0.352251,log,0.184539,
+total_mg_l_mg2,0.127769,0.215955,log,0.088186,
+hr_24_mg_l_cl,0.116257,0.207611,log,0.091354,
+total_mg_l_na,0.102147,0.474966,log,0.372819,
+hr_1_mg_l_so4,0.052862,0.183944,log,0.131082,
+total_mg_l_so4,0.037203,0.16512,log,0.127917,
+total_mg_l_ca2,0.035097,0.161476,log,0.126379,
+total_mg_l_cl,0.024195,0.164531,log,0.140337,
+hr_1_mg_l_cl,0.007147,0.164664,log,0.157517,
+hr_24_mg_l_so4,-0.00072,0.001662,log,0.002382,
+ec_us_cm,-0.028709,-0.045511,raw,-0.016802,

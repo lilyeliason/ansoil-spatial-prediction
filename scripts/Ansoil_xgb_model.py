@@ -94,7 +94,7 @@ EXCLUDE_TARGETS = [
 KNN_RESULTS_FILE = "../reference_results/ansoil_model_results_knn.csv"
 RF_RESULTS_FILE = "../reference_results/ansoil_model_results_rf_seed42.csv"
 
-SEED = 123
+SEED = 7
 DIST_COAST_UNIT_THRESHOLD = 1000.0
 
 

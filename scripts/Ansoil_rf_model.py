@@ -88,7 +88,7 @@ EXCLUDE_TARGETS = [
 # For KNN comparison (optional — loads if the file exists)
 KNN_RESULTS_FILE = "../reference_results/ansoil_model_results_knn.csv"
 
-SEED = 42
+SEED = 73
 
 # Threshold (meters) above which grid dist_coast is assumed to be in meters
 DIST_COAST_UNIT_THRESHOLD = 1000.0

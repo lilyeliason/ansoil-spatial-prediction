@@ -1,0 +1,68 @@
+target,raw_col,log_transformed,selected_transform,back_transform,best_n_estimators,best_max_depth,best_min_samples_leaf,best_max_features,best_max_samples,cv_r2,cv_rmse_log_space,cv_rmse_orig_units,tier,n_folds,n_samples,grid
+d15n_air_permil,d15n_air_permil,False,raw,none,100,30.0,1,sqrt,0.8,0.6752492115127069,6.073615621051788,6.073615621051788,strong,28,171,predicted
+digest_mg_kg_ni2316,digest_mg_kg_ni2316,False,raw,none,100,15.0,1,sqrt,,0.47885791375710784,19.054784908989102,19.054784908989102,moderate,28,171,predicted
+digest_mg_kg_mg2852,digest_mg_kg_mg2852,False,raw,none,100,30.0,3,sqrt,0.8,0.44732080333330926,5076.392511018305,5076.392511018305,moderate,28,171,predicted
+log_digest_mg_kg_sr4077,digest_mg_kg_sr4077,True,log1p,expm1,100,15.0,5,0.5,0.8,0.39296970823627053,0.9515804391880489,57.00776821674961,moderate,28,171,predicted
+digest_mg_kg_ti3349,digest_mg_kg_ti3349,False,raw,none,100,30.0,5,0.75,0.8,0.3927719731267745,501.622894254488,501.622894254488,moderate,28,171,predicted
+clr_total_mg_l_po4,clr_total_mg_l_po4,False,raw,none,100,15.0,3,0.5,,0.39276309410170773,1.4281276899589128,1.4281276899589128,moderate,28,171,predicted
+log_digest_mg_kg_p_1774,digest_mg_kg_p_1774,True,log1p,expm1,100,15.0,3,sqrt,0.8,0.3924493479971718,0.7911722110508436,1697.2998472156794,moderate,28,171,predicted
+wt_percent_n,wt_percent_n,False,raw,none,100,,3,sqrt,,0.38985696947918524,0.07281256406303835,0.07281256406303835,moderate,28,171,predicted
+digest_mg_kg_na5895,digest_mg_kg_na5895,False,raw,none,100,,3,sqrt,,0.38590166247464397,2462.791064528299,2462.791064528299,moderate,28,171,predicted
+digest_mg_kg_k_7664,digest_mg_kg_k_7664,False,raw,none,100,,3,sqrt,,0.37990670030272644,2292.1909846016883,2292.1909846016883,moderate,28,171,predicted
+d13c_vpdb_permil,d13c_vpdb_permil,False,raw,none,100,15.0,1,sqrt,0.8,0.35065955692540696,8.652230356914078,8.652230356914078,moderate,28,171,predicted
+log_total_mg_l_na,total_mg_l_na,True,log,exp,100,,3,0.75,,0.3341556498303211,1.5167939107733817,1734.0601212573963,moderate,28,171,predicted
+digest_mg_kg_cr2835,digest_mg_kg_cr2835,False,raw,none,100,,3,sqrt,,0.324753648753933,11.004330680152506,11.004330680152506,moderate,28,171,predicted
+ph_mq,ph_mq,False,raw,none,100,,5,sqrt,,0.2922542354020434,1.015207211413307,1.015207211413307,weak,28,171,predicted
+c_n_ratio,c_n_ratio,False,raw,none,100,15.0,3,0.75,0.8,0.2916810197736548,12.217018479104329,12.217018479104329,weak,28,171,predicted
+clr_hr_1_mg_l_po4,clr_hr_1_mg_l_po4,False,raw,none,100,15.0,3,0.5,,0.28710068789900034,1.4905575837772742,1.4905575837772742,weak,28,171,predicted
+clr_total_mg_l_ca2,clr_total_mg_l_ca2,False,raw,none,100,30.0,1,sqrt,0.8,0.2701354828259933,1.03345784018226,1.03345784018226,weak,28,171,predicted
+wt_percent_c,wt_percent_c,False,raw,none,100,15.0,5,0.5,0.8,0.2700493469603181,0.45028407426677713,0.45028407426677713,weak,28,171,predicted
+clr_hr_24_mg_l_po4,clr_hr_24_mg_l_po4,False,raw,none,100,30.0,3,sqrt,0.8,0.26618288308514815,1.195099957445776,1.195099957445776,weak,28,171,predicted
+log_digest_mg_kg_mo2020,digest_mg_kg_mo2020,True,log1p,expm1,100,30.0,3,sqrt,0.8,0.2631551297771155,0.2421898311795388,0.41084666435062317,weak,28,171,predicted
+log_digest_mg_kg_ca3158,digest_mg_kg_ca3158,True,log,exp,100,15.0,5,0.5,0.8,0.262944981257342,0.9555203935132839,8856.430690995008,weak,28,171,predicted
+digest_mg_kg_co2286,digest_mg_kg_co2286,False,raw,none,100,15.0,3,sqrt,,0.262044526057415,4.801283752983735,4.801283752983735,weak,28,171,predicted
+ph_kcl,ph_kcl,False,raw,none,100,15.0,3,sqrt,,0.24080861072530146,1.0501744063652527,1.0501744063652527,weak,28,171,predicted
+clr_total_mg_l_k,clr_total_mg_l_k,False,raw,none,100,30.0,5,0.75,0.8,0.20650576469854443,1.16467466900601,1.16467466900601,weak,28,171,predicted
+log_digest_mg_kg_pb2203,digest_mg_kg_pb2203,True,log1p,expm1,100,15.0,5,sqrt,0.8,0.1998538415186678,0.703481422702043,14.7749967896992,weak,28,171,predicted
+digest_mg_kg_fe2599,digest_mg_kg_fe2599,False,raw,none,100,30.0,5,sqrt,0.8,0.19363035733899547,6634.2842072497015,6634.2842072497015,weak,28,171,predicted
+clr_hr_1_mg_l_no3,clr_hr_1_mg_l_no3,False,raw,none,100,,5,0.5,,0.17329263228594538,1.545707362213249,1.545707362213249,weak,28,171,predicted
+clr_total_mg_l_no3,clr_total_mg_l_no3,False,raw,none,100,15.0,5,0.5,0.8,0.17068999813696106,1.4707763861551673,1.4707763861551673,weak,28,171,predicted
+log_hr_24_mg_l_cl,hr_24_mg_l_cl,True,log,exp,100,,1,sqrt,,0.16451516707154024,1.6456361886184983,72.13645481917858,weak,28,171,predicted
+digest_mg_kg_al3082,digest_mg_kg_al3082,False,raw,none,100,15.0,5,0.5,0.8,0.16444594199693208,5907.559104440314,5907.559104440314,weak,28,171,predicted
+clr_total_mg_l_sr2,clr_total_mg_l_sr2,False,raw,none,100,30.0,1,sqrt,0.8,0.16185735550903713,1.3024674522147677,1.3024674522147677,weak,28,171,predicted
+log_cec_meq_100g,cec_meq_100g,True,log1p,expm1,100,15.0,5,0.5,0.8,0.15871881744451344,0.5253809936493345,3.0462302762754376,weak,28,171,predicted
+log_total_mg_l_cl,total_mg_l_cl,True,log,exp,100,,5,sqrt,,0.15666910006296708,1.8615641195826558,761.6554229268967,weak,28,171,predicted
+clr_hr_24_mg_l_so4,clr_hr_24_mg_l_so4,False,raw,none,100,15.0,3,sqrt,,0.14756272005145865,1.1973444481272382,1.1973444481272382,weak,28,171,predicted
+log_hr_1_mg_l_so4,hr_1_mg_l_so4,True,log,exp,100,15.0,3,0.5,,0.14093264342342315,1.9839082951565972,3098.0858524246514,weak,28,171,predicted
+log_total_mg_l_so4,total_mg_l_so4,True,log,exp,100,15.0,5,0.75,,0.137069884084575,1.860333516657061,4491.658549006756,weak,28,171,predicted
+log_hr_1_mg_l_cl,hr_1_mg_l_cl,True,log,exp,100,,5,sqrt,,0.13667195684497524,2.1766512019515547,708.4831376623753,weak,28,171,predicted
+digest_mg_kg_v_2924,digest_mg_kg_v_2924,False,raw,none,100,15.0,5,sqrt,0.8,0.1353719221711034,18.794509480593874,18.794509480593874,weak,28,171,predicted
+clr_total_mg_l_na,clr_total_mg_l_na,False,raw,none,100,15.0,3,sqrt,,0.13334692279756477,0.8087122482122925,0.8087122482122925,weak,28,171,predicted
+digest_mg_kg_be3130,digest_mg_kg_be3130,False,raw,none,100,,3,sqrt,,0.12220345567255009,0.8002687886842663,0.8002687886842663,weak,28,171,predicted
+log_total_mg_l_ca2,total_mg_l_ca2,True,log,exp,100,,5,sqrt,,0.1100428063080715,2.0141243903777193,1749.1021507999665,weak,28,171,predicted
+clr_hr_24_mg_l_cl,clr_hr_24_mg_l_cl,False,raw,none,100,30.0,3,sqrt,0.8,0.10349459494115965,1.0838307638821707,1.0838307638821707,weak,28,171,predicted
+digest_mg_kg_mn2576,digest_mg_kg_mn2576,False,raw,none,100,30.0,5,0.75,0.8,0.10291234219370882,223.50266606880174,223.50266606880174,weak,28,171,predicted
+ph_cacl2,ph_cacl2,False,raw,none,100,,5,sqrt,,0.0955049404426015,0.9992087976501484,0.9992087976501484,weak,28,171,predicted
+clr_total_mg_l_cl,clr_total_mg_l_cl,False,raw,none,100,30.0,3,sqrt,0.8,0.08926277176452713,1.387455674764743,1.387455674764743,weak,28,171,predicted
+log_total_mg_l_mg2,total_mg_l_mg2,True,log,exp,100,30.0,3,0.75,,0.08457203236268707,1.9335748238092934,507.54844094406894,weak,28,171,predicted
+digest_mg_kg_ba4554,digest_mg_kg_ba4554,False,raw,none,100,15.0,5,sqrt,0.8,0.07244526477058943,29.222596847697538,29.222596847697538,weak,28,171,predicted
+clr_total_mg_l_so4,clr_total_mg_l_so4,False,raw,none,100,15.0,5,sqrt,0.8,0.06098049255283866,0.9922073495488333,0.9922073495488333,weak,28,171,predicted
+digest_mg_kg_si2516,digest_mg_kg_si2516,False,raw,none,100,,5,sqrt,,0.05506653012840157,204.34393751494085,204.34393751494085,weak,28,171,predicted
+log_digest_mg_kg_li6707,digest_mg_kg_li6707,True,log1p,expm1,100,15.0,1,sqrt,0.8,0.05327339202823511,0.8888524021119744,9.424266300817596,weak,28,171,predicted
+digest_mg_kg_zn2138,digest_mg_kg_zn2138,False,raw,none,100,15.0,5,sqrt,0.8,0.04766492672811762,32.313549705157996,32.313549705157996,weak,28,171,predicted
+clr_hr_1_mg_l_so4,clr_hr_1_mg_l_so4,False,raw,none,100,15.0,1,sqrt,,0.04490186265148255,1.2661437877704513,1.2661437877704513,weak,28,171,predicted
+log_digest_mg_kg_sb2068,digest_mg_kg_sb2068,True,log1p,expm1,100,,5,sqrt,,0.023832642913030222,0.1797784302677682,0.6423727369771,weak,28,171,predicted
+clr_hr_1_mg_l_cl,clr_hr_1_mg_l_cl,False,raw,none,100,15.0,5,sqrt,0.8,0.01774315883485944,1.348301563281434,1.348301563281434,weak,28,171,predicted
+clr_hr_24_mg_l_f,clr_hr_24_mg_l_f,False,raw,none,100,15.0,5,sqrt,0.8,0.007301407775943902,1.178739719318472,1.178739719318472,weak,28,171,predicted
+clr_total_mg_l_f,clr_total_mg_l_f,False,raw,none,100,15.0,3,sqrt,,-0.002193069854501184,1.389831942893207,1.389831942893207,unusable,28,171,skipped R²=-0.002
+clr_hr_24_mg_l_no3,clr_hr_24_mg_l_no3,False,raw,none,100,30.0,5,sqrt,0.8,-0.0024782391186028985,1.098581688762184,1.098581688762184,unusable,28,171,skipped R²=-0.002
+clr_hr_1_mg_l_f,clr_hr_1_mg_l_f,False,raw,none,100,,3,sqrt,,-0.016053027470593895,1.4152928938515117,1.4152928938515117,unusable,28,171,skipped R²=-0.016
+log_digest_mg_kg_tl1908,digest_mg_kg_tl1908,True,log1p,expm1,100,15.0,5,sqrt,0.8,-0.02821546193726099,0.08312474184279785,0.34717549868920444,unusable,28,171,skipped R²=-0.028
+digest_mg_kg_cu3247,digest_mg_kg_cu3247,False,raw,none,100,15.0,5,0.5,0.8,-0.03432835942082124,13.472238714628581,13.472238714628581,unusable,28,171,skipped R²=-0.034
+log_hr_24_mg_l_so4,hr_24_mg_l_so4,True,log,exp,100,30.0,5,sqrt,0.8,-0.04796097865726745,1.6458127559670885,1979.5846179231717,unusable,28,171,skipped R²=-0.048
+log_digest_mg_kg_sn1899,digest_mg_kg_sn1899,True,log1p,expm1,100,15.0,5,sqrt,0.8,-0.07166368354838526,0.07329983401294596,0.25576279219448955,unusable,28,171,skipped R²=-0.072
+digest_mg_kg_b_2496,digest_mg_kg_b_2496,False,raw,none,100,15.0,5,sqrt,0.8,-0.07342826250735812,20.989374832499227,20.989374832499227,unusable,28,171,skipped R²=-0.073
+digest_mg_kg_as1890,digest_mg_kg_as1890,False,raw,none,100,15.0,5,sqrt,0.8,-0.08192835582907376,2.596323021823118,2.596323021823118,unusable,28,171,skipped R²=-0.082
+log_digest_mg_kg_hg1849,digest_mg_kg_hg1849,True,log1p,expm1,100,30.0,3,sqrt,0.8,-0.13146956655862807,1.290877947116864,69.65495411845042,unusable,28,171,skipped R²=-0.131
+clr_total_mg_l_mg2,clr_total_mg_l_mg2,False,raw,none,100,15.0,5,sqrt,0.8,-0.15471957111210144,0.8790718697572169,0.8790718697572169,unusable,28,171,skipped R²=-0.155
+ec_us_cm,ec_us_cm,False,raw,none,100,,5,sqrt,,-0.24997869218917423,5485.84720478101,5485.84720478101,unusable,28,171,skipped R²=-0.250

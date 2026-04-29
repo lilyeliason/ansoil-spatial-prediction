@@ -36,6 +36,7 @@ MODELS = ["rf", "xgb"]
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESULTS_DIR = os.path.join(REPO_ROOT, "results")
 OUTPUT_DIR = os.path.join(RESULTS_DIR, "aggregated")
+GRID_META = os.path.join(REPO_ROOT, "data", "ansoil_grid_prepared.csv")
 
 # Metrics columns to aggregate across seeds
 METRIC_COLS = ["cv_r2", "cv_rmse_orig_units", "cv_rmse_log_space"]
@@ -130,6 +131,11 @@ def summarise_metrics(combined: pd.DataFrame, model: str) -> pd.DataFrame:
     return summary
 
 
+def load_grid_meta() -> pd.DataFrame:
+    """Load grid_id, lat, lon, acbr from the master grid file."""
+    return pd.read_csv(GRID_META, usecols=["grid_id", "lat", "lon", "acbr"])
+
+
 def summarise_grid_predictions(
     combined: pd.DataFrame, model: str
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -140,6 +146,11 @@ def summarise_grid_predictions(
     ]
     mean_df = combined.groupby("grid_id")[pred_cols].mean().reset_index()
     sd_df = combined.groupby("grid_id")[pred_cols].std().reset_index()
+
+    # Join lat, lon, acbr from master grid file and place after grid_id
+    meta = load_grid_meta()
+    mean_df = meta.merge(mean_df, on="grid_id", how="right")
+    sd_df = meta.merge(sd_df, on="grid_id", how="right")
     return mean_df, sd_df
 
 

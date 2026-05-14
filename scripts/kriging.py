@@ -71,9 +71,7 @@ VARIOGRAM_MODEL = "spherical"
 # Nugget:sill ratio above which variogram is considered flat
 FLATNESS_NS_THRESHOLD = 0.85
 
-# =============================================================================
 # SETUP
-# =============================================================================
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -83,9 +81,7 @@ print(f"Target:          {TARGET}")
 print(f"Variogram model: {VARIOGRAM_MODEL}")
 print("=" * 70)
 
-# =============================================================================
 # STEP 1: Load files
-# =============================================================================
 
 print("\nSTEP 1: Loading files...")
 
@@ -104,9 +100,7 @@ print(f"  Sample index:     {sample_idx.shape}")
 print(f"  Grid predictions: {grid_preds.shape}")
 print(f"  Grid coordinates: {grid_coords.shape}")
 
-# =============================================================================
 # STEP 2: Filter CV predictions to target
-# =============================================================================
 
 print(f"\nSTEP 2: Filtering to target '{TARGET}'...")
 
@@ -132,9 +126,7 @@ if grid_col not in grid_preds.columns:
     print(f"Available: {[c for c in grid_preds.columns if c.startswith('pred_')][:10]}")
     raise SystemExit(1)
 
-# =============================================================================
 # STEP 3: Join sample data with projected coordinates
-# =============================================================================
 
 print("\nSTEP 3: Joining sample data with coordinates...")
 
@@ -162,9 +154,7 @@ print(
     f"Min: {z.min():.4f}  |  Max: {z.max():.4f}"
 )
 
-# =============================================================================
 # STEP 4: Fit semivariogram to residuals
-# =============================================================================
 
 print(f"\nSTEP 4: Fitting {VARIOGRAM_MODEL} semivariogram to residuals...")
 
@@ -264,9 +254,7 @@ fig1.savefig(fig1_path, dpi=300, bbox_inches="tight")
 print(f"\n  Variogram plot saved: {fig1_path}")
 plt.show()
 
-# =============================================================================
 # STEP 5: Leave-One-Out Cross-Validation
-# =============================================================================
 
 print("\nSTEP 5: Leave-One-Out Cross-Validation...")
 print(f"  Running {len(df)} LOO iterations (a few minutes)...")
@@ -374,9 +362,7 @@ fig2.savefig(fig2_path, dpi=300, bbox_inches="tight")
 print(f"\n  LOO scatter plot saved: {fig2_path}")
 plt.show()
 
-# =============================================================================
 # STEP 6: Krige residuals across 15,769 grid points
-# =============================================================================
 
 print("\nSTEP 6: Kriging residuals across grid points...")
 if is_flat:
@@ -421,9 +407,7 @@ print(
 )
 print(f"    Mean kriging variance: {kriging_data['kriging_variance'].mean():.4f}")
 
-# =============================================================================
 # STEP 7: Save outputs
-# =============================================================================
 
 print("\nSTEP 7: Saving outputs...")
 
@@ -443,9 +427,7 @@ print(f"  Saved: {loo_path}")
 print(f"  Saved: {fig1_path}")
 print(f"  Saved: {fig2_path}")
 
-# =============================================================================
 # FINAL SUMMARY
-# =============================================================================
 
 print(f"\n{'=' * 70}")
 print(f"COMPLETE — {TARGET}")

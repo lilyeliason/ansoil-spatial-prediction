@@ -1,0 +1,4 @@
+metric,RF_alone,regression_kriging,improvement
+R²,0.4812,-0.0978,-0.579
+RMSE,2263.6352,3292.7753,1029.1401
+MAE,1182.487,2099.3752,916.8882

@@ -1,18 +1,18 @@
 """
-make_taylor_diagrams_v7.py
-ANSOIL — Taylor Diagram, two panels split by tier
+make_taylor_diagrams_v8.py
+ANSOIL — Taylor Diagrams, 3 separate files, one per variable family
 
-Panel 1: Strong + Moderate targets  (~15–20 points)
-Panel 2: Weak + Unusable targets    (~30–40 points, but lower R so spread out)
+Scope: Strong + Moderate targets only, per family
+Each figure: ~6–12 targets — readable density for a Taylor diagram
+Numbers are the markers (filled circle = RF, open square = XGB)
+Lookup table below the diagram
 
-Each panel:
-  - r_max = 95th percentile of that panel's sigma_n + 0.15
-  - Numbers ARE the markers (filled circle = RF, open square = XGB)
-  - Numbered lookup table sits directly below its panel
-  - No floating text on the polar diagram
+Outputs:
+  taylor_soil.png
+  taylor_metals.png
+  taylor_water.png
 
-Run:  python make_taylor_diagrams_v7.py
-Out:  taylor_v7.png
+Run:  python make_taylor_diagrams_v8.py
 """
 
 import matplotlib
@@ -29,8 +29,6 @@ TARGETS_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-pred
 LOG_TABLE_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/data/ansoil_log_targets.csv"
 RF_METRICS_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/results/aggregated/metrics_summary_rf.csv"
 XGB_METRICS_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/results/aggregated/metrics_summary_xgb.csv"
-
-OUT = "taylor_v7.png"
 
 # ── 1. Load ───────────────────────────────────────────────────────────────────
 targets = pd.read_csv(TARGETS_FILE)
@@ -157,15 +155,101 @@ df_all["label"] = (
     .fillna(df_all["target"])
 )
 
-# ── 3. Style ──────────────────────────────────────────────────────────────────
+# Strong + moderate only
+df_sm = df_all[df_all["tier"].isin(["strong", "moderate"])].copy()
+
+# ── 3. Family definitions ─────────────────────────────────────────────────────
+FAMILIES = {
+    "soil": {
+        "title": "Soil Properties",
+        "subtitle": "pH, stable isotopes, C/N, CEC",
+        "outfile": "taylor_soil.png",
+        "targets": [
+            "ph_mq",
+            "ph_kcl",
+            "ph_cacl2",
+            "d15n_air_permil",
+            "d13c_vpdb_permil",
+            "wt_percent_n",
+            "wt_percent_c",
+            "c_n_ratio",
+            "log_cec_meq_100g",
+        ],
+    },
+    "metals": {
+        "title": "Digest Metals",
+        "subtitle": "mg kg⁻¹",
+        "outfile": "taylor_metals.png",
+        "targets": [
+            "digest_mg_kg_ni2316",
+            "digest_mg_kg_mg2852",
+            "digest_mg_kg_ti3349",
+            "digest_mg_kg_na5895",
+            "digest_mg_kg_k_7664",
+            "digest_mg_kg_cr2835",
+            "digest_mg_kg_al3082",
+            "digest_mg_kg_fe2599",
+            "digest_mg_kg_co2286",
+            "digest_mg_kg_mn2576",
+            "digest_mg_kg_ba4554",
+            "digest_mg_kg_si2516",
+            "digest_mg_kg_v_2924",
+            "digest_mg_kg_be3130",
+            "digest_mg_kg_zn2138",
+            "digest_mg_kg_cu3247",
+            "digest_mg_kg_as1890",
+            "digest_mg_kg_b_2496",
+            "log_digest_mg_kg_p_1774",
+            "log_digest_mg_kg_sr4077",
+            "log_digest_mg_kg_mo2020",
+            "log_digest_mg_kg_ca3158",
+            "log_digest_mg_kg_na5895",
+            "log_digest_mg_kg_li6707",
+            "log_digest_mg_kg_pb2203",
+            "log_digest_mg_kg_sb2068",
+        ],
+    },
+    "water": {
+        "title": "Water Chemistry",
+        "subtitle": "Ions, CLR extracts, leachate",
+        "outfile": "taylor_water.png",
+        "targets": [
+            "clr_total_mg_l_po4",
+            "clr_hr_1_mg_l_po4",
+            "clr_hr_24_mg_l_po4",
+            "clr_total_mg_l_k",
+            "clr_total_mg_l_na",
+            "clr_total_mg_l_cl",
+            "clr_total_mg_l_no3",
+            "clr_total_mg_l_so4",
+            "clr_total_mg_l_ca2",
+            "clr_total_mg_l_sr2",
+            "clr_hr_1_mg_l_cl",
+            "clr_hr_1_mg_l_no3",
+            "clr_hr_1_mg_l_so4",
+            "clr_hr_24_mg_l_cl",
+            "clr_hr_24_mg_l_no3",
+            "clr_hr_24_mg_l_so4",
+            "log_total_mg_l_na",
+            "log_total_mg_l_mg2",
+            "log_total_mg_l_ca2",
+            "log_total_mg_l_cl",
+            "log_hr_24_mg_l_cl",
+            "log_hr_1_mg_l_cl",
+            "ec_us_cm",
+            "hr_24_mg_l_so4",
+        ],
+    },
+}
+
+# ── 4. Style ──────────────────────────────────────────────────────────────────
 TIER_COLORS = {
     "strong": "#1565c0",
     "moderate": "#2e7d32",
-    "weak": "#e65100",
-    "unusable": "#757575",
 }
-JITTER_RAD = 0.013
-JITTER_SN = 0.017
+# Small jitter so RF circle and XGB square don't perfectly overlap
+JITTER_RAD = 0.012
+JITTER_SN = 0.015
 
 
 def _jitter(th, sn, model):
@@ -173,122 +257,114 @@ def _jitter(th, sn, model):
     return th + s * JITTER_RAD, sn + s * JITTER_SN
 
 
-def compute_rmax(df_sub, pct=0.95, pad=0.18, minimum=0.75):
-    if df_sub.empty:
-        return minimum
-    return max(float(df_sub["sigma_n"].quantile(pct)) + pad, minimum)
-
-
-# ── 4. Draw one Taylor panel ──────────────────────────────────────────────────
-def draw_taylor(ax, df_pts, title, r_max, rmse_contours=None):
+# ── 5. Draw Taylor panel ──────────────────────────────────────────────────────
+def draw_taylor(ax, df_pts, r_max, rmse_contours=(0.5, 1.0)):
     """
-    Numbers-as-markers Taylor diagram.
-    RF  = filled circle, white number
-    XGB = open square, coloured number
-    Returns list of (idx, label, tier) sorted by descending mean R.
+    Clean Taylor diagram. Numbers are the markers.
+    RF  = filled circle, white number inside.
+    XGB = open square, coloured number inside.
+    Returns list of (idx, label, tier) for the lookup table.
     """
-    if rmse_contours is None:
-        rmse_contours = [0.5, 1.0]
-
-    ax.set_facecolor("#ffffff")
+    ax.set_facecolor("white")
     ax.set_thetamin(0)
     ax.set_thetamax(90)
     ths = np.linspace(0, np.pi / 2, 300)
 
-    # Sigma grid arcs
+    # ── Grid: sigma arcs ──
     for rv in np.arange(0.2, r_max + 0.01, 0.2):
-        ax.plot(ths, np.full_like(ths, rv), "-", color="#f0f0f0", lw=0.5, zorder=0)
+        ax.plot(ths, np.full_like(ths, rv), color="#f0f0f0", lw=0.6, zorder=0)
         ax.text(
             np.pi / 2 + 0.03,
             rv,
             f"{rv:.1f}",
             ha="left",
             va="center",
-            fontsize=5,
+            fontsize=5.5,
             color="#bbbbbb",
         )
 
-    # Hard boundary arc
-    ax.plot(ths, np.full_like(ths, r_max), "-", color="#cccccc", lw=0.7, zorder=1)
+    # ── Hard outer boundary ──
+    ax.plot(ths, np.full_like(ths, r_max), color="#dddddd", lw=0.8, zorder=1)
 
-    # cRMSE arcs
+    # ── cRMSE arcs ──
     for rc in rmse_contours:
         ct = np.cos(ths)
         disc = ct**2 - (1 - rc**2)
         r_arc = np.where(disc >= 0, ct + np.sqrt(np.where(disc >= 0, disc, 0)), np.nan)
         r_arc = np.where((r_arc >= 0) & (r_arc <= r_max), r_arc, np.nan)
-        ax.plot(ths, r_arc, ":", color="#cccccc", lw=0.85, zorder=1)
+        ax.plot(ths, r_arc, linestyle=":", color="#cccccc", lw=1.0, zorder=1)
+        # Label near the arc, at ~68°, inside the boundary
         th_l = np.radians(68)
         d_l = np.cos(th_l) ** 2 - (1 - rc**2)
         if d_l >= 0:
-            r_l = min(np.cos(th_l) + np.sqrt(d_l), r_max - 0.05)
-            if r_l > 0.1:
+            r_l = min(np.cos(th_l) + np.sqrt(d_l), r_max - 0.06)
+            if r_l > 0.15:
                 ax.text(
                     th_l,
                     r_l,
-                    f"{rc}",
+                    f"cRMSE = {rc}",
                     ha="center",
                     va="center",
-                    fontsize=5.5,
+                    fontsize=6,
                     color="#aaaaaa",
                     style="italic",
-                    bbox=dict(facecolor="white", edgecolor="none", pad=0.4),
+                    bbox=dict(facecolor="white", edgecolor="none", pad=0.8),
                     zorder=2,
                 )
 
-    # Reference std = 1
-    ax.plot(ths, np.ones_like(ths), "--", color="#555555", lw=1.0, zorder=2)
+    # ── Reference std = 1 arc ──
+    ax.plot(ths, np.ones_like(ths), linestyle="--", color="#666666", lw=1.1, zorder=2)
 
-    # Correlation radials
+    # ── Correlation radials, clipped to r_max ──
     for r_val in [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99]:
         th = np.arccos(r_val)
-        ax.plot([th, th], [0, r_max], "-", color="#f0f0f0", lw=0.5, zorder=0)
+        ax.plot([th, th], [0, r_max], color="#f0f0f0", lw=0.6, zorder=0)
         ax.text(
             th,
-            r_max + 0.06,
+            r_max + 0.07,
             f"{r_val}",
             ha="center",
             va="bottom",
-            fontsize=5.5,
+            fontsize=6,
             color="#888888",
         )
 
-    # Axis labels
+    # ── Axis labels ──
     ax.text(
         np.radians(45),
-        r_max + 0.20,
+        r_max + 0.22,
         "Correlation (R)",
         ha="center",
         va="center",
-        fontsize=8,
+        fontsize=9,
         fontweight="bold",
         color="#333333",
     )
     ax.text(
         np.radians(83),
-        r_max * 0.38,
-        "Norm.\nStd. Dev.",
+        r_max * 0.35,
+        "Normalised\nStd. Dev.",
         ha="center",
         va="center",
-        fontsize=6,
+        fontsize=7,
         fontweight="bold",
         color="#333333",
     )
 
-    # OBS
-    ax.scatter([0], [1.0], marker="*", s=160, color="#111111", zorder=15, clip_on=False)
+    # ── OBS reference point ──
+    ax.scatter([0], [1.0], marker="*", s=200, color="#111111", zorder=15, clip_on=False)
     ax.text(
         np.radians(1.5),
-        1.07,
+        1.08,
         "OBS",
-        fontsize=6.5,
+        fontsize=7.5,
         fontweight="bold",
         color="#111111",
         ha="left",
         va="bottom",
     )
 
-    # Data — sort targets by mean R descending so index 1 = best performer
+    # ── Data points ──
     order = df_pts.groupby("target")["R"].mean().sort_values(ascending=False).index
 
     key_items = []
@@ -298,20 +374,20 @@ def draw_taylor(ax, df_pts, title, r_max, rmse_contours=None):
             continue
         tier = sub.iloc[0]["tier"]
         lbl = sub.iloc[0]["label"]
-        color = TIER_COLORS.get(tier, "#bbbbbb")
-        fsize = 5.2 if idx >= 10 else 6.2
-        msz = 160 if idx >= 10 else 130
+        color = TIER_COLORS.get(tier, "#999999")
+
+        # Slightly smaller font/marker for two-digit indices
+        fsize = 6.0 if idx >= 10 else 7.5
+        msz = 170 if idx >= 10 else 140
 
         for _, row in sub.iterrows():
             if np.isnan(row["R"]) or np.isnan(row["sigma_n"]):
                 continue
-            th_raw = np.arccos(np.clip(row["R"], -1, 1))
-            sn_raw = row["sigma_n"]
-            th_j, sn_j = _jitter(th_raw, sn_raw, row["model"])
-
-            clipped = sn_j > r_max
-            sn_j = min(sn_j, r_max - 0.05)
-            label = "×" if clipped else str(idx)
+            th = np.arccos(np.clip(row["R"], -1, 1))
+            sn = row["sigma_n"]
+            th_j, sn_j = _jitter(th, sn, row["model"])
+            # Clip to boundary if needed
+            sn_j = min(sn_j, r_max - 0.04)
 
             if row["model"] == "RF":
                 ax.scatter(
@@ -320,15 +396,15 @@ def draw_taylor(ax, df_pts, title, r_max, rmse_contours=None):
                     marker="o",
                     s=msz,
                     color=color,
-                    alpha=0.92,
+                    alpha=0.93,
                     zorder=8,
                     edgecolors="white",
-                    linewidths=0.3,
+                    linewidths=0.4,
                 )
                 ax.text(
                     th_j,
                     sn_j,
-                    label,
+                    str(idx),
                     ha="center",
                     va="center",
                     fontsize=fsize,
@@ -341,17 +417,17 @@ def draw_taylor(ax, df_pts, title, r_max, rmse_contours=None):
                     th_j,
                     sn_j,
                     marker="s",
-                    s=msz + 20,
+                    s=msz + 25,
                     facecolor="white",
                     alpha=1.0,
                     zorder=8,
                     edgecolors=color,
-                    linewidths=1.3,
+                    linewidths=1.5,
                 )
                 ax.text(
                     th_j,
                     sn_j,
-                    label,
+                    str(idx),
                     ha="center",
                     va="center",
                     fontsize=fsize,
@@ -366,46 +442,71 @@ def draw_taylor(ax, df_pts, title, r_max, rmse_contours=None):
     ax.set_yticks([])
     ax.set_xticks([])
     ax.spines["polar"].set_visible(False)
-    ax.set_title(
-        title, fontsize=9, pad=22, color="#111111", fontweight="bold", loc="center"
-    )
-
     return key_items
 
 
-# ── 5. Lookup table ───────────────────────────────────────────────────────────
-def draw_lookup_table(
-    fig, ax_pos, key_items, fig_w_in, fig_h_in, n_cols=3, fontsize=7.5
-):
-    """
-    Draw lookup table below the given axis.
-    ax_pos: Bbox in figure fraction (from ax.get_position()).
-    Spacing is computed in inches then converted to figure fraction,
-    so it's resolution-independent.
-    """
-    if not key_items:
+# ── 6. Make one figure ────────────────────────────────────────────────────────
+def make_figure(family_key):
+    fam = FAMILIES[family_key]
+    df_fam = df_sm[df_sm["target"].isin(fam["targets"])].copy()
+    n_tgts = df_fam["target"].nunique()
+
+    if n_tgts == 0:
+        print(f"  {family_key}: no strong/moderate targets found — skipping.")
         return
 
-    line_h_in = fontsize * 1.55 / 72  # line height in inches
-    line_h_frac = line_h_in / fig_h_in  # converted to figure fraction
-    swatch_w_frac = 0.25 / fig_w_in  # 0.25" swatch column
-    idx_w_frac = 0.18 / fig_w_in  # 0.18" for "N." text
-    gap_frac = 0.05 / fig_w_in  # gap between columns
+    # r_max: 95th percentile of sigma_n + padding, minimum 0.8
+    r_max = max(float(df_fam["sigma_n"].quantile(0.95)) + 0.18, 0.80)
+    print(f"  {family_key}: {n_tgts} targets, r_max = {r_max:.3f}")
 
-    panel_w = ax_pos.width
+    # ── Figure layout ──────────────────────────────────────────────────────
+    # Single 7×8" figure.
+    # Polar panel: top 62% of height, centred in left 80% of width
+    # Lookup table: below polar panel
+    # Legend strip: very bottom
+    FIG_W, FIG_H = 7.5, 8.5
+
+    fig = plt.figure(figsize=(FIG_W, FIG_H), facecolor="white")
+
+    # Polar axes: [left, bottom, width, height] in figure fraction
+    ax = fig.add_axes([0.06, 0.30, 0.72, 0.62], projection="polar")
+
+    key_items = draw_taylor(ax, df_fam, r_max=r_max, rmse_contours=(0.5, 1.0))
+
+    # ── Title ──────────────────────────────────────────────────────────────
+    ax.set_title(
+        f"{fam['title']}\n{fam['subtitle']}  |  Strong & Moderate targets  |  ANSOIL",
+        fontsize=10,
+        fontweight="bold",
+        pad=24,
+        color="#111111",
+        loc="center",
+    )
+
+    # ── Lookup table ───────────────────────────────────────────────────────
+    # Force draw so get_position() is accurate
+    fig.canvas.draw()
+    ax_pos = ax.get_position()  # Bbox in figure fraction
+
     n = len(key_items)
+    n_cols = 2 if n <= 8 else 3
     n_rows = -(-n // n_cols)
-    col_w = panel_w / n_cols
 
-    # Start just below the axis
-    top_y = ax_pos.y0 - (0.18 / fig_h_in)
+    # Spacing in inches → figure fraction
+    FONT = 8.0  # pt
+    lh = FONT * 1.6 / 72 / FIG_H  # line height in figure fraction
+    sw = 0.18 / FIG_W  # swatch width
+    gap = 0.06 / FIG_W  # gap
+    col_w = ax_pos.width / n_cols
 
-    # Header
+    tbl_top = ax_pos.y0 - 0.18 / FIG_H  # start just below axis
+
+    # "Target index" header
     fig.text(
         ax_pos.x0,
-        top_y + line_h_frac * 0.3,
+        tbl_top + lh * 0.5,
         "Target index",
-        fontsize=fontsize - 0.5,
+        fontsize=FONT - 0.5,
         fontweight="bold",
         color="#555555",
         va="bottom",
@@ -417,15 +518,15 @@ def draw_lookup_table(
         col = i // n_rows
         row = i % n_rows
         x = ax_pos.x0 + col * col_w
-        y = top_y - row * line_h_frac
-        c = TIER_COLORS.get(tier, "#bbbbbb")
+        y = tbl_top - row * lh
+        c = TIER_COLORS.get(tier, "#999999")
 
-        # Swatch
+        # Colour swatch
         fig.add_artist(
             mpatches.FancyBboxPatch(
-                (x, y - line_h_frac * 0.28),
-                swatch_w_frac,
-                line_h_frac * 0.55,
+                (x, y - lh * 0.30),
+                sw,
+                lh * 0.60,
                 boxstyle="square,pad=0",
                 transform=fig.transFigure,
                 facecolor=c,
@@ -433,12 +534,12 @@ def draw_lookup_table(
                 zorder=5,
             )
         )
-        # Index number
+        # Index
         fig.text(
-            x + swatch_w_frac + gap_frac,
+            x + sw + gap,
             y,
             f"{idx}.",
-            fontsize=fontsize,
+            fontsize=FONT,
             fontweight="bold",
             color=c,
             va="center",
@@ -447,123 +548,62 @@ def draw_lookup_table(
         )
         # Label
         fig.text(
-            x + swatch_w_frac + idx_w_frac + gap_frac * 2,
+            x + sw + gap + 0.16 / FIG_W,
             y,
             lbl,
-            fontsize=fontsize,
+            fontsize=FONT,
             color="#222222",
             va="center",
             ha="left",
             transform=fig.transFigure,
         )
 
-
-# ── 6. Assemble figure ────────────────────────────────────────────────────────
-PANEL_SPLITS = [
-    ("Strong & Moderate", ["strong", "moderate"]),
-    ("Weak & Unusable", ["weak", "unusable"]),
-]
-
-# Work out r_max per panel before drawing so we can size the figure correctly
-panel_data = []
-for title_suffix, tiers in PANEL_SPLITS:
-    df_sub = df_all[df_all["tier"].isin(tiers)].copy()
-    rmax = compute_rmax(df_sub)
-    n_tgts = df_sub["target"].nunique()
-    panel_data.append((title_suffix, tiers, df_sub, rmax, n_tgts))
-    print(f"{title_suffix}: {n_tgts} targets, r_max={rmax:.3f}")
-
-# Figure dimensions
-# Each panel column is 6.5" wide; total width = 13"
-# Height: polar takes 55%, table takes ~30%, shared legend 6%, margins 9%
-FIG_W = 13.0
-FIG_H = 11.0
-
-fig = plt.figure(figsize=(FIG_W, FIG_H), facecolor="white")
-
-# Panel geometry (figure fraction)
-polar_left = [0.04, 0.52]  # left edge of each polar axes
-polar_bottom = 0.32
-polar_w = 0.43
-polar_h = 0.58
-
-axes = []
-all_keys = []
-
-for i, (title_suffix, tiers, df_sub, rmax, n_tgts) in enumerate(panel_data):
-    ax = fig.add_axes(
-        [polar_left[i], polar_bottom, polar_w, polar_h],
-        projection="polar",
-    )
-    panel_title = f"({'a' if i == 0 else 'b'})  {title_suffix}"
-    key_items = draw_taylor(
-        ax, df_sub, title=panel_title, r_max=rmax, rmse_contours=[0.5, 1.0]
-    )
-    axes.append(ax)
-    all_keys.append(key_items)
-    print(f"  Panel {i + 1} drew {len(key_items)} targets.")
-
-# Force a draw so get_position() returns real values
-fig.canvas.draw()
-
-# Draw lookup tables
-for i, (ax, key_items) in enumerate(zip(axes, all_keys)):
-    ax_pos = ax.get_position()
-    n_tgts = len(key_items)
-    # 3 cols for ≤18 targets, 4 cols for more
-    nc = 3 if n_tgts <= 18 else 4
-    draw_lookup_table(
-        fig, ax_pos, key_items, fig_w_in=FIG_W, fig_h_in=FIG_H, n_cols=nc, fontsize=7.5
+    # ── Legend ─────────────────────────────────────────────────────────────
+    leg_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#555",
+            markersize=9,
+            label="Random Forest",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="s",
+            color="w",
+            markerfacecolor="white",
+            markeredgecolor="#555",
+            markeredgewidth=1.3,
+            markersize=9,
+            label="XGBoost",
+        ),
+        mpatches.Patch(color=TIER_COLORS["strong"], label="Strong (R² ≥ 0.60)"),
+        mpatches.Patch(color=TIER_COLORS["moderate"], label="Moderate (R² 0.30–0.60)"),
+    ]
+    fig.legend(
+        handles=leg_handles,
+        loc="lower center",
+        ncol=4,
+        fontsize=8,
+        frameon=True,
+        framealpha=0.95,
+        edgecolor="#dddddd",
+        bbox_to_anchor=(0.5, 0.01),
     )
 
-# Shared legend
-leg_model = [
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        markerfacecolor="#555",
-        markersize=9,
-        label="RF — filled circle",
-    ),
-    Line2D(
-        [0],
-        [0],
-        marker="s",
-        color="w",
-        markerfacecolor="white",
-        markeredgecolor="#555",
-        markeredgewidth=1.3,
-        markersize=9,
-        label="XGBoost — open square",
-    ),
-]
-leg_tier = [
-    mpatches.Patch(color=TIER_COLORS["strong"], label="Strong   (R² ≥ 0.60)"),
-    mpatches.Patch(color=TIER_COLORS["moderate"], label="Moderate (R² 0.30–0.60)"),
-    mpatches.Patch(color=TIER_COLORS["weak"], label="Weak     (R² 0–0.30)"),
-    mpatches.Patch(color=TIER_COLORS["unusable"], label="Unusable (R² < 0)"),
-]
-fig.legend(
-    handles=leg_model + leg_tier,
-    loc="lower center",
-    ncol=6,
-    fontsize=8.5,
-    frameon=True,
-    framealpha=0.95,
-    edgecolor="#dddddd",
-    bbox_to_anchor=(0.5, 0.005),
-)
+    fig.savefig(
+        fam["outfile"], dpi=200, bbox_inches="tight", facecolor="white", pad_inches=0.2
+    )
+    print(f"  Saved: {fam['outfile']}")
+    plt.close(fig)
 
-fig.suptitle(
-    "Taylor Diagram — RF vs. XGBoost  |  ANSOIL Antarctic Soil Geochemistry",
-    fontsize=12,
-    fontweight="bold",
-    y=0.995,
-    color="#111111",
-)
 
-fig.savefig(OUT, dpi=200, bbox_inches="tight", facecolor="white", pad_inches=0.25)
-print(f"\nSaved: {OUT}")
-plt.close(fig)
+# ── 7. Run ────────────────────────────────────────────────────────────────────
+print("Generating Taylor diagrams (strong + moderate, per family)...\n")
+for key in ("soil", "metals", "water"):
+    print(f"Family: {key}")
+    make_figure(key)
+print("\nDone.")

@@ -1175,6 +1175,243 @@ def fig5_four_model_comparison(rf_metrics: pd.DataFrame, xgb_metrics: pd.DataFra
     print(f"  Saved: {out}")
 
 
+# ── Figure 6: All-targets ranked bar chart ────────────────────────────────────
+
+
+def fig6_ranked_bar(rf_metrics: pd.DataFrame, xgb_metrics: pd.DataFrame):
+    """
+    Diverging horizontal bar chart: all targets ranked by mean R², colored by
+    tier. One panel per model (RF left, XGB right). Negative R² bars extend
+    left. Tier legend with counts shown. Mirrors the style of the reference
+    figure showing 'All N Targets Ranked by Predictability'.
+    """
+    print("Building Figure 6: All-targets ranked bar chart...")
+
+    TIER_DEFS = [
+        ("Strong", 0.40, 1.0, "#1a6faf"),
+        ("Moderate", 0.20, 0.40, "#5ba4d4"),
+        ("Weak", 0.0, 0.20, "#a8cce4"),
+        ("Unusable", -9.9, 0.0, "#cccccc"),
+    ]
+
+    def tier_color(r2):
+        for name, lo, hi, clr in TIER_DEFS:
+            if lo <= r2 < hi:
+                return clr
+        return "#cccccc"
+
+    def tier_name(r2):
+        for name, lo, hi, clr in TIER_DEFS:
+            if lo <= r2 < hi:
+                return name
+        return "Unusable"
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 10), gridspec_kw={"wspace": 0.35})
+
+    for ax, model, metrics_df in [
+        (axes[0], "Random Forest", rf_metrics),
+        (axes[1], "XGBoost", xgb_metrics),
+    ]:
+        agg = mean_r2_per_target(metrics_df)
+        agg["label"] = agg["target"].apply(clean_target_label)
+        agg = agg.sort_values("mean_r2", ascending=True).reset_index(drop=True)
+        agg["color"] = agg["mean_r2"].apply(tier_color)
+        agg["tier"] = agg["mean_r2"].apply(tier_name)
+
+        n = len(agg)
+        y = np.arange(n)
+
+        ax.barh(y, agg["mean_r2"], color=agg["color"], height=0.75, zorder=2)
+        ax.axvline(0, color="#555", lw=0.8, zorder=3)
+        ax.axvline(
+            MAPPABILITY_THRESHOLD, color="black", lw=1.0, ls="--", alpha=0.7, zorder=3
+        )
+
+        # Dotted tier boundary lines
+        for _, lo, hi, _ in TIER_DEFS[:-1]:
+            ax.axvline(lo, color="#aaa", lw=0.5, ls=":", zorder=1)
+
+        ax.set_yticks(y)
+        ax.set_yticklabels(agg["label"], fontsize=6.5)
+        ax.set_xlabel("Mean LOLO CV R²", fontsize=9)
+        ax.tick_params(axis="x", labelsize=8)
+        for spine in ["top", "right"]:
+            ax.spines[spine].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+
+        # Tier legend block (top right)
+        legend_lines = []
+        for tname, lo, hi, clr in TIER_DEFS:
+            count = (agg["tier"] == tname).sum()
+            patch = mpatches.Patch(color=clr, label=f"{tname}  (n={count})")
+            legend_lines.append(patch)
+        ax.legend(
+            handles=legend_lines,
+            fontsize=7.5,
+            frameon=False,
+            loc="lower right",
+            bbox_to_anchor=(1.0, 0.01),
+        )
+
+        ax.set_title(model, fontsize=11, pad=8, fontweight="bold")
+        ax.set_xlim(agg["mean_r2"].min() - 0.05, agg["mean_r2"].max() + 0.08)
+
+    fig.suptitle(
+        "All targets ranked by LOLO CV R²", fontsize=13, fontweight="bold", y=0.94
+    )
+    fig.tight_layout()
+    out = os.path.join(OUT_DIR, "fig6_ranked_bar.png")
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {out}")
+
+
+# ── Figure 7: Observed vs predicted scatter ───────────────────────────────────
+
+# ── Figure 7: Observed vs predicted scatter ───────────────────────────────────
+
+
+def fig7_obs_vs_pred(
+    rf_samples: pd.DataFrame,
+    xgb_samples: pd.DataFrame,
+    rf_metrics: pd.DataFrame,
+    xgb_metrics: pd.DataFrame,
+    n_targets: int = 6,
+):
+    """
+    Observed vs predicted scatter for top N targets per model.
+    Produces two separate PNGs — one for RF, one for XGB.
+    Points colored by absolute error (blue=low, red=high).
+    1:1 dashed line. R² annotated in each panel.
+    """
+    if rf_samples.empty and xgb_samples.empty:
+        print("  SKIPPED Fig 7: no sample predictions loaded.")
+        return
+
+    print("Building Figure 7: Observed vs predicted scatter (RF + XGB)...")
+
+    def make_scatter(samples_df, metrics_df, model_name, model_key, n_targets):
+        if samples_df.empty:
+            print(f"  SKIPPED Fig 7 ({model_name}): no predictions.")
+            return
+
+        agg = mean_r2_per_target(metrics_df).sort_values("mean_r2", ascending=False)
+        top_targets = agg.head(n_targets)["target"].tolist()
+
+        N_COLS = 3
+        N_ROWS = int(np.ceil(n_targets / N_COLS))
+        fig, axes = plt.subplots(
+            N_ROWS,
+            N_COLS,
+            figsize=(N_COLS * 4, N_ROWS * 4),
+            gridspec_kw={"hspace": 0.45, "wspace": 0.35},
+        )
+        axes_flat = axes.flatten()
+
+        for i, target in enumerate(top_targets):
+            ax = axes_flat[i]
+            r2 = agg.set_index("target").loc[target, "mean_r2"]
+            df_t = samples_df[samples_df["target"] == target].copy()
+
+            if df_t.empty:
+                ax.set_visible(False)
+                continue
+
+            # Average across seeds per sample
+            df_t = df_t.groupby(["sample_id", "observed"], as_index=False)[
+                "predicted"
+            ].mean()
+            df_t["abs_err"] = (df_t["observed"] - df_t["predicted"]).abs()
+
+            obs = df_t["observed"].values
+            pred = df_t["predicted"].values
+            err = df_t["abs_err"].values
+            err_norm = (err - err.min()) / max(err.max() - err.min(), 1e-9)
+
+            ax.scatter(
+                obs,
+                pred,
+                c=err_norm,
+                cmap="coolwarm",
+                s=45,
+                alpha=0.85,
+                linewidths=0.3,
+                edgecolors="white",
+                zorder=3,
+            )
+
+            lo = min(obs.min(), pred.min())
+            hi = max(obs.max(), pred.max())
+            mg = (hi - lo) * 0.04
+            ax.plot(
+                [lo - mg, hi + mg],
+                [lo - mg, hi + mg],
+                "k--",
+                lw=1.0,
+                alpha=0.55,
+                zorder=2,
+            )
+            ax.set_xlim(lo - mg, hi + mg)
+            ax.set_ylim(lo - mg, hi + mg)
+
+            ax.set_title(
+                clean_target_label(target), fontsize=10, pad=5, fontweight="bold"
+            )
+            ax.set_xlabel("Measured Value", fontsize=8.5)
+            ax.set_ylabel("Predicted Value", fontsize=8.5)
+            ax.tick_params(labelsize=7.5)
+            ax.text(
+                0.05,
+                0.93,
+                f"R² = {r2:.3f}",
+                transform=ax.transAxes,
+                fontsize=9.5,
+                fontweight="bold",
+                va="top",
+                color="#222",
+            )
+            for spine in ["top", "right"]:
+                ax.spines[spine].set_visible(False)
+
+        for j in range(len(top_targets), len(axes_flat)):
+            axes_flat[j].set_visible(False)
+
+        # Shared colorbar
+        cbar_ax = fig.add_axes([0.35, -0.04, 0.30, 0.018])
+        sm = plt.cm.ScalarMappable(cmap="coolwarm", norm=plt.Normalize(vmin=0, vmax=1))
+        sm.set_array([])
+        cbar = fig.colorbar(sm, cax=cbar_ax, orientation="horizontal")
+        cbar.set_ticks([0, 0.5, 1])
+        cbar.set_ticklabels(["Low Error", "", "High Error"])
+        cbar.ax.tick_params(labelsize=8)
+
+        fig.text(
+            0.5,
+            -0.085,
+            "Dashed line = perfect prediction (1:1). Points colored by absolute error.",
+            ha="center",
+            fontsize=8,
+            color="#555",
+        )
+
+        fig.suptitle(
+            f"Model Performance: Measured vs. Predicted — {model_name}\n"
+            f"Top {n_targets} targets by mean LOLO CV R²",
+            fontsize=12,
+            fontweight="bold",
+            y=0.98,
+        )
+
+        out = os.path.join(OUT_DIR, f"fig7_obs_vs_pred_{model_key}.png")
+        fig.savefig(out, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved: {out}")
+
+    make_scatter(rf_samples, rf_metrics, "Random Forest", "rf", n_targets)
+    make_scatter(xgb_samples, xgb_metrics, "XGBoost", "xgb", n_targets)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -1182,7 +1419,7 @@ if __name__ == "__main__":
     rf_metrics = load_metrics("rf")
     xgb_metrics = load_metrics("xgb")
 
-    print("Loading sample predictions (needed for Fig 4 only)...")
+    print("Loading sample predictions (needed for Figs 4 and 7)...")
     rf_samples = load_sample_predictions("rf")
     xgb_samples = load_sample_predictions("xgb")
 
@@ -1191,5 +1428,7 @@ if __name__ == "__main__":
     fig3_seed_heatmap(rf_metrics, xgb_metrics)
     fig4_acbr_error_table(rf_samples, xgb_samples, rf_metrics, xgb_metrics)
     fig5_four_model_comparison(rf_metrics, xgb_metrics)
+    fig6_ranked_bar(rf_metrics, xgb_metrics)
+    fig7_obs_vs_pred(rf_samples, xgb_samples, rf_metrics, xgb_metrics)
 
     print(f"\nDone. Figures saved to: {OUT_DIR}/")

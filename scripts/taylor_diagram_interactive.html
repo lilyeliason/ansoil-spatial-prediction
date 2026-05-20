@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANSOIL Taylor Diagram — Interactive</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f5f7;color:#1a1a1a;min-height:100vh}
+.page{max-width:1260px;margin:0 auto;padding:24px 20px 48px}
+.header{margin-bottom:14px}
+.header h1{font-size:18px;font-weight:600;color:#111}
+.header .sub{margin-top:3px;font-size:11.5px;color:#777}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;margin-bottom:14px;padding:9px 13px;background:#fff;border:0.5px solid #ddd;border-radius:8px}
+.cg{display:flex;align-items:center;gap:6px}
+.cg label{font-size:12px;color:#555;font-weight:500;white-space:nowrap}
+.pills{display:flex;gap:3px}
+.pill{padding:3px 10px;border-radius:20px;font-size:11.5px;cursor:pointer;border:1px solid #ccc;background:#fff;color:#444;transition:all .12s;user-select:none}
+.pill.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.main{display:flex;gap:16px;align-items:flex-start}
+.cwrap{position:relative;flex:0 0 auto;background:#fff;border:0.5px solid #ddd;border-radius:10px;padding:10px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+canvas{display:block}
+#tooltip{position:fixed;pointer-events:none;background:#fff;border:0.5px solid #ccc;border-radius:8px;padding:10px 13px;font-size:12px;line-height:1.6;box-shadow:0 4px 18px rgba(0,0,0,.13);max-width:260px;z-index:1000;opacity:0;transition:opacity .1s}
+#tooltip.visible{opacity:1}
+#tooltip .tv{font-size:13px;font-weight:600;margin-bottom:3px}
+#tooltip .tsub{font-size:10.5px;color:#999;margin-bottom:7px}
+#tooltip .tr{display:flex;justify-content:space-between;gap:16px;color:#555;font-size:11.5px;margin-bottom:2px}
+#tooltip .tv2{font-weight:600;color:#111}
+#tooltip .tb{display:inline-block;margin-top:7px;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:500}
+.sidebar{flex:1 1 220px;min-width:190px}
+.lb{background:#fff;border:0.5px solid #ddd;border-radius:8px;padding:11px 13px;margin-bottom:9px}
+.lb h3{font-size:10px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.lr{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:12px;color:#333}
+.lr:last-child{margin-bottom:0}
+.sw{width:13px;height:13px;border-radius:3px;flex-shrink:0}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}
+.sc{background:#f8f9fa;border-radius:6px;padding:8px 10px;font-size:11px;color:#888}
+.sc .sv{font-size:17px;font-weight:600;color:#1a1a1a;display:block;margin-bottom:1px}
+.note{font-size:11px;color:#777;line-height:1.55;padding:9px 11px;background:#fff;border:0.5px solid #ddd;border-radius:8px;margin-top:8px}
+@media(max-width:900px){.main{flex-direction:column}.sidebar{flex:unset;width:100%}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="header">
+  <h1>ANSOIL Geochemical ML — Interactive Taylor Diagram</h1>
+  <div class="sub">RF &amp; XGBoost predictions vs. Antarctic soil observations &nbsp;·&nbsp; Hover to identify, click to pin</div>
+</div>
+
+<div class="controls">
+  <div class="cg"><label>Family</label>
+    <div class="pills" id="fp">
+      <div class="pill active" data-v="all">All</div>
+      <div class="pill" data-v="Soil Properties">Soil</div>
+      <div class="pill" data-v="Digest Metals">Metals</div>
+      <div class="pill" data-v="Water Chemistry">Water</div>
+    </div>
+  </div>
+  <div class="cg"><label>Model</label>
+    <div class="pills" id="mp">
+      <div class="pill active" data-v="all">Both</div>
+      <div class="pill" data-v="RF">RF</div>
+      <div class="pill" data-v="XGBoost">XGBoost</div>
+    </div>
+  </div>
+  <div class="cg"><label>Tier</label>
+    <div class="pills" id="tp">
+      <div class="pill active" data-v="all">All</div>
+      <div class="pill" data-v="weak">Weak+</div>
+      <div class="pill" data-v="moderate">Mod+</div>
+      <div class="pill" data-v="strong">Strong</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="cwrap">
+    <canvas id="tc"></canvas>
+  </div>
+  <div class="sidebar">
+    <div class="lb">
+      <h3>Model</h3>
+      <div class="lr"><svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="#555" stroke="white" stroke-width="1"/></svg> Random Forest</div>
+      <div class="lr"><svg width="16" height="16"><polygon points="8,1.5 14.5,8 8,14.5 1.5,8" fill="#555" stroke="white" stroke-width="1"/></svg> XGBoost</div>
+      <div class="lr"><svg width="16" height="16"><polygon points="8,0 9.5,5.5 15.5,6 11,9.5 12.8,16 8,12.5 3.2,16 5,9.5 0.5,6 6.5,5.5" fill="#111" stroke="white" stroke-width="0.5"/></svg> Observation (ref.)</div>
+    </div>
+    <div class="lb">
+      <h3>Performance tier</h3>
+      <div class="lr"><div class="sw" style="background:#1A5276"></div><b>Strong</b>&nbsp;— R² ≥ 0.60</div>
+      <div class="lr"><div class="sw" style="background:#1E8449"></div><b>Moderate</b>&nbsp;— R² 0.30–0.60</div>
+      <div class="lr"><div class="sw" style="background:#BA4A00"></div><b>Weak</b>&nbsp;— R² 0–0.30</div>
+      <div class="lr"><div class="sw" style="background:#95A5A6"></div><b>Unusable</b>&nbsp;— R² &lt; 0</div>
+    </div>
+    <div class="lb">
+      <h3>Visible</h3>
+      <div class="sg">
+        <div class="sc"><span class="sv" id="st">—</span>Points</div>
+        <div class="sc"><span class="sv" id="sv">—</span>Variables</div>
+        <div class="sc"><span class="sv" id="ss">—</span>Strong</div>
+        <div class="sc"><span class="sv" id="sm">—</span>Moderate</div>
+      </div>
+    </div>
+    <div class="note">
+      <b>Reading the diagram:</b> The full fan shows all correlation values. The left half (r&nbsp;&lt;&nbsp;0) contains unusable targets — model predictions are anti-correlated with observations. The reference ★ sits at σ<sub>n</sub>=1, r=1. Points closer to ★ are better.<br><br>
+      Radial distance = normalized SD (σ<sub>n</sub>). Arc labels = Pearson r. Dashed arcs = centered RMSD. † = log-transformed target.
+    </div>
+  </div>
+</div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+const DATA = [{"target": "c_n_ratio", "short": "C:N", "label": "C:N ratio", "model": "RF", "r2": 0.3051, "r": 0.5524, "sigma_n": 0.5524, "tier": "moderate", "family": "Soil Properties"}, {"target": "clr_hr_1_mg_l_cl", "short": "Cl·1h", "label": "Cl⁻ HR-1h (CLR)", "model": "RF", "r2": 0.0354, "r": 0.1881, "sigma_n": 0.1881, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_f", "short": "F·1h", "label": "F⁻ HR-1h (CLR)", "model": "RF", "r2": -0.026, "r": -0.1611, "sigma_n": 0.0531, "tier": "unusable", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_no3", "short": "NO₃·1h", "label": "NO₃⁻ HR-1h (CLR)", "model": "RF", "r2": 0.1647, "r": 0.4058, "sigma_n": 0.4058, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_po4", "short": "PO₄·1h", "label": "PO₄³⁻ HR-1h (CLR)", "model": "RF", "r2": 0.2783, "r": 0.5275, "sigma_n": 0.5275, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_so4", "short": "SO₄·1h", "label": "SO₄²⁻ HR-1h (CLR)", "model": "RF", "r2": 0.0563, "r": 0.2373, "sigma_n": 0.2373, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_cl", "short": "Cl·24h", "label": "Cl⁻ HR-24h (CLR)", "model": "RF", "r2": 0.1043, "r": 0.323, "sigma_n": 0.323, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_f", "short": "F·24h", "label": "F⁻ HR-24h (CLR)", "model": "RF", "r2": 0.0136, "r": 0.1168, "sigma_n": 0.1168, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_no3", "short": "NO₃·24h", "label": "NO₃⁻ HR-24h (CLR)", "model": "RF", "r2": 0.007, "r": 0.0839, "sigma_n": 0.0839, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_po4", "short": "PO₄·24h", "label": "PO₄³⁻ HR-24h (CLR)", "model": "RF", "r2": 0.2535, "r": 0.5034, "sigma_n": 0.5034, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_so4", "short": "SO₄·24h", "label": "SO₄²⁻ HR-24h (CLR)", "model": "RF", "r2": 0.1271, "r": 0.3565, "sigma_n": 0.3565, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_ca2", "short": "Ca(t)", "label": "Ca²⁺ total (CLR)", "model": "RF", "r2": 0.2449, "r": 0.4949, "sigma_n": 0.4949, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_cl", "short": "Cl(t)", "label": "Cl⁻ total (CLR)", "model": "RF", "r2": 0.0924, "r": 0.304, "sigma_n": 0.304, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_f", "short": "F(t)", "label": "F⁻ total (CLR)", "model": "RF", "r2": -0.0025, "r": -0.0503, "sigma_n": -0.0503, "tier": "unusable", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_k", "short": "K(t)", "label": "K⁺ total (CLR)", "model": "RF", "r2": 0.2306, "r": 0.4802, "sigma_n": 0.4802, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_mg2", "short": "Mg(t)", "label": "Mg²⁺ total (CLR)", "model": "RF", "r2": -0.1591, "r": -0.3989, "sigma_n": 0.1591, "tier": "unusable", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_na", "short": "Na(t)", "label": "Na⁺ total (CLR)", "model": "RF", "r2": 0.1339, "r": 0.3659, "sigma_n": 0.3659, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_no3", "short": "NO₃(t)", "label": "NO₃⁻ total (CLR)", "model": "RF", "r2": 0.1625, "r": 0.4031, "sigma_n": 0.4031, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_po4", "short": "PO₄(t)", "label": "PO₄³⁻ total (CLR)", "model": "RF", "r2": 0.3673, "r": 0.6061, "sigma_n": 0.6061, "tier": "moderate", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_so4", "short": "SO₄(t)", "label": "SO₄²⁻ total (CLR)", "model": "RF", "r2": 0.0593, "r": 0.2436, "sigma_n": 0.2436, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_sr2", "short": "Sr(t)", "label": "Sr²⁺ total (CLR)", "model": "RF", "r2": 0.1541, "r": 0.3926, "sigma_n": 0.3926, "tier": "weak", "family": "Water Chemistry"}, {"target": "d13c_vpdb_permil", "short": "δ¹³C", "label": "δ¹³C (VPDB, ‰)", "model": "RF", "r2": 0.3561, "r": 0.5967, "sigma_n": 0.5967, "tier": "moderate", "family": "Soil Properties"}, {"target": "d15n_air_permil", "short": "δ¹⁵N", "label": "δ¹⁵N (air, ‰)", "model": "RF", "r2": 0.6646, "r": 0.8153, "sigma_n": 0.8153, "tier": "strong", "family": "Soil Properties"}, {"target": "digest_mg_kg_al3082", "short": "Al", "label": "Al (digest)", "model": "RF", "r2": 0.1638, "r": 0.4048, "sigma_n": 0.4048, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_as1890", "short": "As", "label": "As (digest)", "model": "RF", "r2": -0.0939, "r": -0.3065, "sigma_n": 0.1195, "tier": "unusable", "family": "Digest Metals"}, {"target": "digest_mg_kg_b_2496", "short": "B", "label": "B (digest)", "model": "RF", "r2": -0.0639, "r": -0.2527, "sigma_n": 0.0959, "tier": "unusable", "family": "Digest Metals"}, {"target": "digest_mg_kg_ba4554", "short": "Ba", "label": "Ba (digest)", "model": "RF", "r2": 0.0794, "r": 0.2818, "sigma_n": 0.2818, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_be3130", "short": "Be", "label": "Be (digest)", "model": "RF", "r2": 0.0987, "r": 0.3141, "sigma_n": 0.3141, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_co2286", "short": "Co", "label": "Co (digest)", "model": "RF", "r2": 0.2619, "r": 0.5117, "sigma_n": 0.5117, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_cr2835", "short": "Cr", "label": "Cr (digest)", "model": "RF", "r2": 0.3301, "r": 0.5746, "sigma_n": 0.5746, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_cu3247", "short": "Cu", "label": "Cu (digest)", "model": "RF", "r2": -0.0303, "r": -0.174, "sigma_n": 0.0594, "tier": "unusable", "family": "Digest Metals"}, {"target": "digest_mg_kg_fe2599", "short": "Fe", "label": "Fe (digest)", "model": "RF", "r2": 0.2017, "r": 0.4491, "sigma_n": 0.4491, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_k_7664", "short": "K", "label": "K (digest)", "model": "RF", "r2": 0.3739, "r": 0.6115, "sigma_n": 0.6115, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_mg2852", "short": "Mg", "label": "Mg (digest)", "model": "RF", "r2": 0.4364, "r": 0.6606, "sigma_n": 0.6606, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_mn2576", "short": "Mn", "label": "Mn (digest)", "model": "RF", "r2": 0.1053, "r": 0.3245, "sigma_n": 0.3245, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_na5895", "short": "Na", "label": "Na (digest)", "model": "RF", "r2": 0.3998, "r": 0.6323, "sigma_n": 0.6323, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_ni2316", "short": "Ni", "label": "Ni (digest)", "model": "RF", "r2": 0.4415, "r": 0.6644, "sigma_n": 0.6644, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_si2516", "short": "Si", "label": "Si (digest)", "model": "RF", "r2": 0.087, "r": 0.295, "sigma_n": 0.295, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_ti3349", "short": "Ti", "label": "Ti (digest)", "model": "RF", "r2": 0.4037, "r": 0.6353, "sigma_n": 0.6353, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_v_2924", "short": "V", "label": "V (digest)", "model": "RF", "r2": 0.129, "r": 0.3592, "sigma_n": 0.3592, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_zn2138", "short": "Zn", "label": "Zn (digest)", "model": "RF", "r2": 0.0671, "r": 0.259, "sigma_n": 0.259, "tier": "weak", "family": "Digest Metals"}, {"target": "ec_us_cm", "short": "EC", "label": "EC (µS/cm)", "model": "RF", "r2": -0.2255, "r": -0.4748, "sigma_n": 0.1913, "tier": "unusable", "family": "Water Chemistry"}, {"target": "hr_24_mg_l_so4", "short": "SO₄·24h", "label": "SO₄²⁻ HR-24h", "model": "RF", "r2": -0.0341, "r": -0.1847, "sigma_n": 0.0647, "tier": "unusable", "family": "Water Chemistry"}, {"target": "log_cec_meq_100g", "short": "CEC†", "label": "CEC (log)", "model": "RF", "r2": 0.1791, "r": 0.4232, "sigma_n": 0.4232, "tier": "weak", "family": "Soil Properties"}, {"target": "log_digest_mg_kg_ca3158", "short": "Ca†", "label": "Ca (digest, log)", "model": "RF", "r2": 0.2559, "r": 0.5058, "sigma_n": 0.5058, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_hg1849", "short": "Hg†", "label": "Hg (digest, log)", "model": "RF", "r2": -0.1149, "r": -0.3389, "sigma_n": 0.1335, "tier": "unusable", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_li6707", "short": "Li†", "label": "Li (digest, log)", "model": "RF", "r2": 0.0586, "r": 0.2421, "sigma_n": 0.2421, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_mo2020", "short": "Mo†", "label": "Mo (digest, log)", "model": "RF", "r2": 0.2257, "r": 0.4751, "sigma_n": 0.4751, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_p_1774", "short": "P†", "label": "P (digest, log)", "model": "RF", "r2": 0.3815, "r": 0.6176, "sigma_n": 0.6176, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_pb2203", "short": "Pb†", "label": "Pb (digest, log)", "model": "RF", "r2": 0.196, "r": 0.4428, "sigma_n": 0.4428, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_sb2068", "short": "Sb†", "label": "Sb (digest, log)", "model": "RF", "r2": 0.0277, "r": 0.1663, "sigma_n": 0.1663, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_sn1899", "short": "Sn†", "label": "Sn (digest, log)", "model": "RF", "r2": -0.0828, "r": -0.2877, "sigma_n": 0.1113, "tier": "unusable", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_sr4077", "short": "Sr†", "label": "Sr (digest, log)", "model": "RF", "r2": 0.3737, "r": 0.6113, "sigma_n": 0.6113, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_tl1908", "short": "Tl†", "label": "Tl (digest, log)", "model": "RF", "r2": -0.0285, "r": -0.1687, "sigma_n": 0.0569, "tier": "unusable", "family": "Digest Metals"}, {"target": "log_hr_1_mg_l_cl", "short": "Cl·1h†", "label": "Cl⁻ HR-1h (log)", "model": "RF", "r2": 0.1403, "r": 0.3745, "sigma_n": 0.3745, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_hr_1_mg_l_so4", "short": "SO₄·1h†", "label": "SO₄²⁻ HR-1h (log)", "model": "RF", "r2": 0.1441, "r": 0.3796, "sigma_n": 0.3796, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_hr_24_mg_l_cl", "short": "Cl·24h†", "label": "Cl⁻ HR-24h (log)", "model": "RF", "r2": 0.1747, "r": 0.418, "sigma_n": 0.418, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_hr_24_mg_l_so4", "short": "SO₄·24h†", "label": "SO₄²⁻ HR-24h (log)", "model": "RF", "r2": -0.0316, "r": -0.1777, "sigma_n": 0.0612, "tier": "unusable", "family": "Water Chemistry"}, {"target": "log_total_mg_l_ca2", "short": "Ca(t)†", "label": "Ca²⁺ total (log)", "model": "RF", "r2": 0.1014, "r": 0.3185, "sigma_n": 0.3185, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_cl", "short": "Cl(t)†", "label": "Cl⁻ total (log)", "model": "RF", "r2": 0.1438, "r": 0.3793, "sigma_n": 0.3793, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_mg2", "short": "Mg(t)†", "label": "Mg²⁺ total (log)", "model": "RF", "r2": 0.0942, "r": 0.3069, "sigma_n": 0.3069, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_na", "short": "Na(t)†", "label": "Na⁺ total (log)", "model": "RF", "r2": 0.2902, "r": 0.5387, "sigma_n": 0.5387, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_so4", "short": "SO₄(t)†", "label": "SO₄²⁻ total (log)", "model": "RF", "r2": 0.1398, "r": 0.3739, "sigma_n": 0.3739, "tier": "weak", "family": "Water Chemistry"}, {"target": "ph_cacl2", "short": "pH-Ca", "label": "pH (CaCl₂)", "model": "RF", "r2": 0.0982, "r": 0.3133, "sigma_n": 0.3133, "tier": "weak", "family": "Soil Properties"}, {"target": "ph_kcl", "short": "pH-K", "label": "pH (KCl)", "model": "RF", "r2": 0.2498, "r": 0.4998, "sigma_n": 0.4998, "tier": "weak", "family": "Soil Properties"}, {"target": "ph_mq", "short": "pH-MQ", "label": "pH (MQ)", "model": "RF", "r2": 0.299, "r": 0.5468, "sigma_n": 0.5468, "tier": "weak", "family": "Soil Properties"}, {"target": "wt_percent_c", "short": "wt%C", "label": "wt% C", "model": "RF", "r2": 0.2748, "r": 0.5242, "sigma_n": 0.5242, "tier": "weak", "family": "Soil Properties"}, {"target": "wt_percent_n", "short": "wt%N", "label": "wt% N", "model": "RF", "r2": 0.3895, "r": 0.6241, "sigma_n": 0.6241, "tier": "moderate", "family": "Soil Properties"}, {"target": "c_n_ratio", "short": "C:N", "label": "C:N ratio", "model": "XGBoost", "r2": 0.3828, "r": 0.6187, "sigma_n": 0.6187, "tier": "moderate", "family": "Soil Properties"}, {"target": "clr_hr_1_mg_l_cl", "short": "Cl·1h", "label": "Cl⁻ HR-1h (CLR)", "model": "XGBoost", "r2": 0.0558, "r": 0.2362, "sigma_n": 0.2362, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_f", "short": "F·1h", "label": "F⁻ HR-1h (CLR)", "model": "XGBoost", "r2": -0.0032, "r": -0.0564, "sigma_n": -0.0341, "tier": "unusable", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_no3", "short": "NO₃·1h", "label": "NO₃⁻ HR-1h (CLR)", "model": "XGBoost", "r2": 0.2182, "r": 0.4672, "sigma_n": 0.4672, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_po4", "short": "PO₄·1h", "label": "PO₄³⁻ HR-1h (CLR)", "model": "XGBoost", "r2": 0.3238, "r": 0.569, "sigma_n": 0.569, "tier": "moderate", "family": "Water Chemistry"}, {"target": "clr_hr_1_mg_l_so4", "short": "SO₄·1h", "label": "SO₄²⁻ HR-1h (CLR)", "model": "XGBoost", "r2": 0.0926, "r": 0.3042, "sigma_n": 0.3042, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_cl", "short": "Cl·24h", "label": "Cl⁻ HR-24h (CLR)", "model": "XGBoost", "r2": 0.1216, "r": 0.3488, "sigma_n": 0.3488, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_f", "short": "F·24h", "label": "F⁻ HR-24h (CLR)", "model": "XGBoost", "r2": 0.0534, "r": 0.231, "sigma_n": 0.231, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_no3", "short": "NO₃·24h", "label": "NO₃⁻ HR-24h (CLR)", "model": "XGBoost", "r2": 0.0148, "r": 0.1218, "sigma_n": 0.1218, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_po4", "short": "PO₄·24h", "label": "PO₄³⁻ HR-24h (CLR)", "model": "XGBoost", "r2": 0.288, "r": 0.5367, "sigma_n": 0.5367, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_hr_24_mg_l_so4", "short": "SO₄·24h", "label": "SO₄²⁻ HR-24h (CLR)", "model": "XGBoost", "r2": 0.131, "r": 0.362, "sigma_n": 0.362, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_ca2", "short": "Ca(t)", "label": "Ca²⁺ total (CLR)", "model": "XGBoost", "r2": 0.2563, "r": 0.5063, "sigma_n": 0.5063, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_cl", "short": "Cl(t)", "label": "Cl⁻ total (CLR)", "model": "XGBoost", "r2": 0.1146, "r": 0.3386, "sigma_n": 0.3386, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_f", "short": "F(t)", "label": "F⁻ total (CLR)", "model": "XGBoost", "r2": 0.0054, "r": 0.0734, "sigma_n": 0.0734, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_k", "short": "K(t)", "label": "K⁺ total (CLR)", "model": "XGBoost", "r2": 0.383, "r": 0.6189, "sigma_n": 0.6189, "tier": "moderate", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_mg2", "short": "Mg(t)", "label": "Mg²⁺ total (CLR)", "model": "XGBoost", "r2": -0.054, "r": -0.2324, "sigma_n": 0.0867, "tier": "unusable", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_na", "short": "Na(t)", "label": "Na⁺ total (CLR)", "model": "XGBoost", "r2": 0.1525, "r": 0.3905, "sigma_n": 0.3905, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_no3", "short": "NO₃(t)", "label": "NO₃⁻ total (CLR)", "model": "XGBoost", "r2": 0.2127, "r": 0.4612, "sigma_n": 0.4612, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_po4", "short": "PO₄(t)", "label": "PO₄³⁻ total (CLR)", "model": "XGBoost", "r2": 0.4049, "r": 0.6363, "sigma_n": 0.6363, "tier": "moderate", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_so4", "short": "SO₄(t)", "label": "SO₄²⁻ total (CLR)", "model": "XGBoost", "r2": 0.0623, "r": 0.2496, "sigma_n": 0.2496, "tier": "weak", "family": "Water Chemistry"}, {"target": "clr_total_mg_l_sr2", "short": "Sr(t)", "label": "Sr²⁺ total (CLR)", "model": "XGBoost", "r2": 0.1897, "r": 0.4355, "sigma_n": 0.4355, "tier": "weak", "family": "Water Chemistry"}, {"target": "d13c_vpdb_permil", "short": "δ¹³C", "label": "δ¹³C (VPDB, ‰)", "model": "XGBoost", "r2": 0.3353, "r": 0.5791, "sigma_n": 0.5791, "tier": "moderate", "family": "Soil Properties"}, {"target": "d15n_air_permil", "short": "δ¹⁵N", "label": "δ¹⁵N (air, ‰)", "model": "XGBoost", "r2": 0.6597, "r": 0.8122, "sigma_n": 0.8122, "tier": "strong", "family": "Soil Properties"}, {"target": "digest_mg_kg_al3082", "short": "Al", "label": "Al (digest)", "model": "XGBoost", "r2": 0.3005, "r": 0.5482, "sigma_n": 0.5482, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_as1890", "short": "As", "label": "As (digest)", "model": "XGBoost", "r2": -0.0276, "r": -0.1661, "sigma_n": 0.0556, "tier": "unusable", "family": "Digest Metals"}, {"target": "digest_mg_kg_b_2496", "short": "B", "label": "B (digest)", "model": "XGBoost", "r2": -0.006, "r": -0.0777, "sigma_n": 0.001, "tier": "unusable", "family": "Digest Metals"}, {"target": "digest_mg_kg_ba4554", "short": "Ba", "label": "Ba (digest)", "model": "XGBoost", "r2": 0.1301, "r": 0.3607, "sigma_n": 0.3607, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_be3130", "short": "Be", "label": "Be (digest)", "model": "XGBoost", "r2": 0.1024, "r": 0.32, "sigma_n": 0.32, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_co2286", "short": "Co", "label": "Co (digest)", "model": "XGBoost", "r2": 0.2574, "r": 0.5073, "sigma_n": 0.5073, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_cr2835", "short": "Cr", "label": "Cr (digest)", "model": "XGBoost", "r2": 0.4062, "r": 0.6374, "sigma_n": 0.6374, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_cu3247", "short": "Cu", "label": "Cu (digest)", "model": "XGBoost", "r2": 0.0994, "r": 0.3153, "sigma_n": 0.3153, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_fe2599", "short": "Fe", "label": "Fe (digest)", "model": "XGBoost", "r2": 0.2508, "r": 0.5008, "sigma_n": 0.5008, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_k_7664", "short": "K", "label": "K (digest)", "model": "XGBoost", "r2": 0.4591, "r": 0.6776, "sigma_n": 0.6776, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_mg2852", "short": "Mg", "label": "Mg (digest)", "model": "XGBoost", "r2": 0.4214, "r": 0.6491, "sigma_n": 0.6491, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_mn2576", "short": "Mn", "label": "Mn (digest)", "model": "XGBoost", "r2": 0.1301, "r": 0.3608, "sigma_n": 0.3608, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_na5895", "short": "Na", "label": "Na (digest)", "model": "XGBoost", "r2": 0.4325, "r": 0.6576, "sigma_n": 0.6576, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_ni2316", "short": "Ni", "label": "Ni (digest)", "model": "XGBoost", "r2": 0.4141, "r": 0.6435, "sigma_n": 0.6435, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_si2516", "short": "Si", "label": "Si (digest)", "model": "XGBoost", "r2": 0.1127, "r": 0.3357, "sigma_n": 0.3357, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_ti3349", "short": "Ti", "label": "Ti (digest)", "model": "XGBoost", "r2": 0.3465, "r": 0.5887, "sigma_n": 0.5887, "tier": "moderate", "family": "Digest Metals"}, {"target": "digest_mg_kg_v_2924", "short": "V", "label": "V (digest)", "model": "XGBoost", "r2": 0.1214, "r": 0.3484, "sigma_n": 0.3484, "tier": "weak", "family": "Digest Metals"}, {"target": "digest_mg_kg_zn2138", "short": "Zn", "label": "Zn (digest)", "model": "XGBoost", "r2": 0.0563, "r": 0.2373, "sigma_n": 0.2373, "tier": "weak", "family": "Digest Metals"}, {"target": "ec_us_cm", "short": "EC", "label": "EC (µS/cm)", "model": "XGBoost", "r2": -0.0338, "r": -0.1838, "sigma_n": 0.0642, "tier": "unusable", "family": "Water Chemistry"}, {"target": "hr_24_mg_l_so4", "short": "SO₄·24h", "label": "SO₄²⁻ HR-24h", "model": "XGBoost", "r2": 0.0039, "r": 0.0621, "sigma_n": 0.0621, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_cec_meq_100g", "short": "CEC†", "label": "CEC (log)", "model": "XGBoost", "r2": 0.2882, "r": 0.5368, "sigma_n": 0.5368, "tier": "weak", "family": "Soil Properties"}, {"target": "log_digest_mg_kg_ca3158", "short": "Ca†", "label": "Ca (digest, log)", "model": "XGBoost", "r2": 0.3382, "r": 0.5815, "sigma_n": 0.5815, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_hg1849", "short": "Hg†", "label": "Hg (digest, log)", "model": "XGBoost", "r2": -0.0297, "r": -0.1725, "sigma_n": 0.0587, "tier": "unusable", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_li6707", "short": "Li†", "label": "Li (digest, log)", "model": "XGBoost", "r2": 0.0812, "r": 0.2849, "sigma_n": 0.2849, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_mo2020", "short": "Mo†", "label": "Mo (digest, log)", "model": "XGBoost", "r2": 0.3356, "r": 0.5793, "sigma_n": 0.5793, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_na5895", "short": "Na†", "label": "Na (digest, log)", "model": "XGBoost", "r2": 0.4082, "r": 0.6389, "sigma_n": 0.6389, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_p_1774", "short": "P†", "label": "P (digest, log)", "model": "XGBoost", "r2": 0.3934, "r": 0.6272, "sigma_n": 0.6272, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_pb2203", "short": "Pb†", "label": "Pb (digest, log)", "model": "XGBoost", "r2": 0.1835, "r": 0.4284, "sigma_n": 0.4284, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_sb2068", "short": "Sb†", "label": "Sb (digest, log)", "model": "XGBoost", "r2": 0.0291, "r": 0.1707, "sigma_n": 0.1707, "tier": "weak", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_sn1899", "short": "Sn†", "label": "Sn (digest, log)", "model": "XGBoost", "r2": -0.0177, "r": -0.1329, "sigma_n": 0.0385, "tier": "unusable", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_sr4077", "short": "Sr†", "label": "Sr (digest, log)", "model": "XGBoost", "r2": 0.4255, "r": 0.6523, "sigma_n": 0.6523, "tier": "moderate", "family": "Digest Metals"}, {"target": "log_digest_mg_kg_tl1908", "short": "Tl†", "label": "Tl (digest, log)", "model": "XGBoost", "r2": -0.0112, "r": -0.1059, "sigma_n": 0.0226, "tier": "unusable", "family": "Digest Metals"}, {"target": "log_hr_1_mg_l_cl", "short": "Cl·1h†", "label": "Cl⁻ HR-1h (log)", "model": "XGBoost", "r2": 0.1668, "r": 0.4085, "sigma_n": 0.4085, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_hr_1_mg_l_so4", "short": "SO₄·1h†", "label": "SO₄²⁻ HR-1h (log)", "model": "XGBoost", "r2": 0.1985, "r": 0.4455, "sigma_n": 0.4455, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_hr_24_mg_l_cl", "short": "Cl·24h†", "label": "Cl⁻ HR-24h (log)", "model": "XGBoost", "r2": 0.2273, "r": 0.4767, "sigma_n": 0.4767, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_ca2", "short": "Ca(t)†", "label": "Ca²⁺ total (log)", "model": "XGBoost", "r2": 0.1744, "r": 0.4176, "sigma_n": 0.4176, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_cl", "short": "Cl(t)†", "label": "Cl⁻ total (log)", "model": "XGBoost", "r2": 0.1363, "r": 0.3692, "sigma_n": 0.3692, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_mg2", "short": "Mg(t)†", "label": "Mg²⁺ total (log)", "model": "XGBoost", "r2": 0.209, "r": 0.4571, "sigma_n": 0.4571, "tier": "weak", "family": "Water Chemistry"}, {"target": "log_total_mg_l_na", "short": "Na(t)†", "label": "Na⁺ total (log)", "model": "XGBoost", "r2": 0.4676, "r": 0.6838, "sigma_n": 0.6838, "tier": "moderate", "family": "Water Chemistry"}, {"target": "log_total_mg_l_so4", "short": "SO₄(t)†", "label": "SO₄²⁻ total (log)", "model": "XGBoost", "r2": 0.1932, "r": 0.4396, "sigma_n": 0.4396, "tier": "weak", "family": "Water Chemistry"}, {"target": "ph_cacl2", "short": "pH-Ca", "label": "pH (CaCl₂)", "model": "XGBoost", "r2": 0.1096, "r": 0.3311, "sigma_n": 0.3311, "tier": "weak", "family": "Soil Properties"}, {"target": "ph_kcl", "short": "pH-K", "label": "pH (KCl)", "model": "XGBoost", "r2": 0.2435, "r": 0.4935, "sigma_n": 0.4935, "tier": "weak", "family": "Soil Properties"}, {"target": "ph_mq", "short": "pH-MQ", "label": "pH (MQ)", "model": "XGBoost", "r2": 0.2852, "r": 0.5341, "sigma_n": 0.5341, "tier": "weak", "family": "Soil Properties"}, {"target": "wt_percent_c", "short": "wt%C", "label": "wt% C", "model": "XGBoost", "r2": 0.3322, "r": 0.5763, "sigma_n": 0.5763, "tier": "moderate", "family": "Soil Properties"}, {"target": "wt_percent_n", "short": "wt%N", "label": "wt% N", "model": "XGBoost", "r2": 0.4911, "r": 0.7008, "sigma_n": 0.7008, "tier": "moderate", "family": "Soil Properties"}];
+
+const TC  = {strong:"#1A5276",moderate:"#1E8449",weak:"#BA4A00",unusable:"#95A5A6"};
+const TBG = {strong:"#D6EAF8",moderate:"#D5F5E3",weak:"#FDEBD0",unusable:"#F2F3F4"};
+const TFG = {strong:"#1A5276",moderate:"#1E8449",weak:"#BA4A00",unusable:"#717D7E"};
+const TRK = {unusable:0,weak:1,moderate:2,strong:3};
+const TL  = {strong:"Strong",moderate:"Moderate",weak:"Weak",unusable:"Unusable"};
+
+// Full fan: theta = arccos(r), range [0, pi] (0=right, pi=left)
+const CORR_LABEL = [-0.99,-0.95,-0.9,-0.8,-0.6,-0.4,-0.2,0.0,0.2,0.4,0.6,0.7,0.8,0.9,0.95,0.99,1.0];
+const CORR_GRID  = [-1,-0.99,-0.95,-0.9,-0.8,-0.7,-0.6,-0.4,-0.2,0,0.2,0.4,0.6,0.7,0.8,0.9,0.95,0.99,1.0];
+const CRMSD      = [0.25,0.50,0.75,1.00];
+const MAX_STD    = 1.05;
+
+// Hi-res canvas
+const canvas = document.getElementById("tc");
+const DPR = window.devicePixelRatio || 2;
+const CW = 860, CH = 510;
+canvas.style.width = CW+"px"; canvas.style.height = CH+"px";
+canvas.width = CW*DPR; canvas.height = CH*DPR;
+const ctx = canvas.getContext("2d");
+ctx.scale(DPR, DPR);
+
+// Layout: origin at bottom-center
+const PAD = {l:68, r:68, t:38, b:56};
+const AW = CW - PAD.l - PAD.r;
+const AH = CH - PAD.t - PAD.b;
+const RPX = Math.min(AW/2, AH);   // radius in css-px
+const SC  = RPX / MAX_STD;
+const OX  = PAD.l + AW/2;         // center x
+const OY  = PAD.t + AH;           // origin y (bottom of fan)
+
+// (sigma_n, r) → canvas coords
+// theta = arccos(r): 0 at right (r=1), pi/2 at top (r=0), pi at left (r=-1)
+function toXY(sn, r) {
+  const th = Math.acos(Math.max(-1, Math.min(1, r)));
+  return { x: OX + sn * Math.cos(th) * SC,
+           y: OY - sn * Math.sin(th) * SC };
+}
+
+let fF="all", fM="all", fT="all", pinned=null, hits=[];
+
+function vis(d) {
+  if (fF !== "all" && d.family !== fF) return false;
+  if (fM !== "all" && d.model  !== fM) return false;
+  if (fT !== "all" && TRK[d.tier] < TRK[fT]) return false;
+  return true;
+}
+
+function draw() {
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,CW,CH);
+  drawGrid();
+  drawCRMSD();
+  drawRefArc();
+  drawAxes();
+  drawAxisLabels();
+  drawPoints();
+  updateStats();
+}
+
+function drawGrid() {
+  // Sigma_n rings (full semicircles)
+  for (let v = 0.25; v <= MAX_STD + 0.01; v += 0.25) {
+    const rr = v * SC;
+    ctx.beginPath();
+    ctx.arc(OX, OY, rr, Math.PI, 0, false);
+    ctx.strokeStyle = (Math.abs(v-1.0) < 0.001) ? "#aaaaaa" : "#e8e8e8";
+    ctx.lineWidth   = (Math.abs(v-1.0) < 0.001) ? 1.0 : 0.6;
+    ctx.stroke();
+  }
+  // Sigma_n tick labels — right side only, below base line
+  ctx.fillStyle="#888"; ctx.font="10.5px sans-serif";
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  for (let v = 0.25; v <= MAX_STD-0.01; v += 0.25)
+    ctx.fillText(v.toFixed(2), OX + v*SC, OY + 7);
+  // 0 label at origin
+  ctx.fillText("0", OX, OY + 7);
+
+  // Correlation radial lines
+  CORR_GRID.forEach(c => {
+    const th = Math.acos(c);
+    ctx.beginPath();
+    ctx.moveTo(OX, OY);
+    ctx.lineTo(OX + MAX_STD*SC*Math.cos(th), OY - MAX_STD*SC*Math.sin(th));
+    ctx.strokeStyle="#eeeeee"; ctx.lineWidth=0.5; ctx.stroke();
+  });
+
+  // Correlation arc tick labels on the outer arc
+  const LR = MAX_STD*SC + 16;
+  ctx.font="10.5px sans-serif"; ctx.textBaseline="middle";
+  CORR_LABEL.forEach(c => {
+    const th = Math.acos(c);
+    const lx = OX + LR*Math.cos(th);
+    const ly = OY - LR*Math.sin(th);
+    ctx.fillStyle="#555";
+    ctx.textAlign = c < -0.05 ? "right" : c > 0.05 ? "left" : "center";
+    ctx.fillText(String(c), lx, ly);
+  });
+}
+
+function drawRefArc() {
+  // sigma_n = 1 arc
+  ctx.beginPath();
+  ctx.arc(OX, OY, SC, Math.PI, 0, false);
+  ctx.strokeStyle="#777"; ctx.lineWidth=1.0; ctx.setLineDash([]); ctx.stroke();
+}
+
+function drawCRMSD() {
+  const refX = OX + SC, refY = OY;  // reference point: sigma_n=1, r=1
+  CRMSD.forEach(crmsd => {
+    const cR = crmsd * SC;
+    ctx.save();
+    // clip to fan region
+    ctx.beginPath();
+    ctx.moveTo(OX, OY);
+    ctx.arc(OX, OY, MAX_STD*SC + 2, Math.PI, 0, false);
+    ctx.closePath(); ctx.clip();
+    ctx.beginPath(); ctx.arc(refX, refY, cR, 0, 2*Math.PI);
+    ctx.strokeStyle="#c5c5c5"; ctx.lineWidth=0.8;
+    ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+    // label near right base
+    const lx = refX - cR;
+    if (lx >= OX - MAX_STD*SC && lx <= OX + MAX_STD*SC) {
+      ctx.fillStyle="#bbb"; ctx.font="9px sans-serif";
+      ctx.textAlign="right"; ctx.textBaseline="bottom";
+      ctx.fillText(crmsd.toFixed(2), lx - 2, OY - 2);
+    }
+  });
+}
+
+function drawAxes() {
+  ctx.strokeStyle="#888"; ctx.lineWidth=1.0; ctx.setLineDash([]);
+  // Base line
+  ctx.beginPath();
+  ctx.moveTo(OX - MAX_STD*SC - 6, OY);
+  ctx.lineTo(OX + MAX_STD*SC + 6, OY);
+  ctx.stroke();
+  // Outer boundary arc
+  ctx.beginPath();
+  ctx.arc(OX, OY, MAX_STD*SC, Math.PI, 0, false);
+  ctx.strokeStyle="#888"; ctx.lineWidth=0.9; ctx.stroke();
+  // r=0 vertical axis
+  ctx.beginPath();
+  ctx.moveTo(OX, OY);
+  ctx.lineTo(OX, OY - MAX_STD*SC - 4);
+  ctx.strokeStyle="#aaa"; ctx.lineWidth=0.7; ctx.stroke();
+}
+
+function drawAxisLabels() {
+  ctx.setLineDash([]);
+  // Single x-axis label centered below the full base line
+  ctx.fillStyle="#333"; ctx.font="12px sans-serif";
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  ctx.fillText("Normalized standard deviation  \u03c3n", OX, OY + 34);
+
+  // Left y-axis label (rotated)
+  ctx.save();
+  ctx.translate(PAD.l - 44, OY - RPX/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign="center"; ctx.textBaseline="alphabetic";
+  ctx.fillText("Normalized standard deviation  \u03c3n", 0, 0);
+  ctx.restore();
+
+  // Correlation arc label at top
+  ctx.font="italic 11.5px sans-serif"; ctx.fillStyle="#666";
+  ctx.textAlign="center"; ctx.textBaseline="bottom";
+  ctx.fillText("Correlation coefficient  r", OX, OY - MAX_STD*SC - 18);
+
+  // r=0 label
+  ctx.font="9px sans-serif"; ctx.fillStyle="#bbb";
+  ctx.textAlign="center"; ctx.textBaseline="bottom";
+  ctx.fillText("r = 0", OX, OY - MAX_STD*SC - 4);
+
+  // Centered RMSD label
+  ctx.font="italic 9px sans-serif"; ctx.fillStyle="#ccc";
+  ctx.textAlign="left"; ctx.textBaseline="middle";
+  ctx.fillText("Centered RMSD", OX + 6, OY - 0.42*SC);
+}
+
+function drawPoints() {
+  hits = [];
+  // Dim hidden points
+  DATA.forEach(d => {
+    if (!vis(d)) {
+      const {x,y} = toXY(d.sigma_n, d.r);
+      ctx.globalAlpha = 0.07;
+      mark(x, y, d.model, TC[d.tier], 5);
+      ctx.globalAlpha = 1;
+    }
+  });
+  // Visible points
+  DATA.forEach(d => {
+    if (!vis(d)) return;
+    const {x,y} = toXY(d.sigma_n, d.r);
+    const pin = pinned && pinned.d === d;
+    mark(x, y, d.model, TC[d.tier], pin ? 10 : 8);
+    hits.push({d, x, y, hit:13});
+  });
+  // Reference star
+  const ref = toXY(1.0, 1.0);
+  star(ref.x, ref.y, 9, "#111");
+  // Pinned ring
+  if (pinned) {
+    ctx.beginPath(); ctx.arc(pinned.x, pinned.y, 14, 0, 2*Math.PI);
+    ctx.strokeStyle="#111"; ctx.lineWidth=1.5; ctx.stroke();
+  }
+}
+
+function mark(x, y, model, color, sz) {
+  ctx.fillStyle=color; ctx.strokeStyle="white"; ctx.lineWidth=1.0;
+  if (model === "RF") {
+    ctx.beginPath(); ctx.arc(x, y, sz, 0, 2*Math.PI);
+    ctx.fill(); ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x,      y - sz*1.35);
+    ctx.lineTo(x + sz, y);
+    ctx.lineTo(x,      y + sz*1.35);
+    ctx.lineTo(x - sz, y);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+}
+
+function star(x, y, r, col) {
+  const spk=8, ir=r*0.45;
+  ctx.beginPath();
+  for (let i=0; i<spk*2; i++) {
+    const a = (i*Math.PI)/spk - Math.PI/2;
+    const rr = i%2===0 ? r : ir;
+    if(i===0) ctx.moveTo(x+rr*Math.cos(a), y+rr*Math.sin(a));
+    else       ctx.lineTo(x+rr*Math.cos(a), y+rr*Math.sin(a));
+  }
+  ctx.closePath();
+  ctx.fillStyle=col; ctx.strokeStyle="white"; ctx.lineWidth=0.9;
+  ctx.fill(); ctx.stroke();
+}
+
+function updateStats() {
+  const v = DATA.filter(vis);
+  document.getElementById("st").textContent = v.length;
+  document.getElementById("sv").textContent = new Set(v.map(d=>d.target)).size;
+  document.getElementById("ss").textContent = v.filter(d=>d.tier==="strong").length;
+  document.getElementById("sm").textContent = v.filter(d=>d.tier==="moderate").length;
+}
+
+// Tooltip
+const ttp = document.getElementById("tooltip");
+function showTip(d, px, py) {
+  const tc=TC[d.tier], tbg=TBG[d.tier], tfg=TFG[d.tier];
+  ttp.innerHTML = `
+    <div class="tv" style="color:${tc}">${d.label}</div>
+    <div class="tsub">${d.family}</div>
+    <div class="tr"><span>Model</span><span class="tv2">${d.model}</span></div>
+    <div class="tr"><span>R²</span><span class="tv2">${d.r2.toFixed(4)}</span></div>
+    <div class="tr"><span>Pearson r</span><span class="tv2">${d.r.toFixed(4)}</span></div>
+    <div class="tr"><span>\u03c3<sub>n</sub></span><span class="tv2">${d.sigma_n.toFixed(4)}</span></div>
+    <div><span class="tb" style="background:${tbg};color:${tfg}">${TL[d.tier]}</span></div>`;
+  const tw=260, th=175;
+  let lx=px+14, ly=py-20;
+  if(lx+tw > window.innerWidth-10)  lx = px-tw-10;
+  if(ly+th > window.innerHeight-10) ly = py-th-10;
+  if(ly < 10) ly = 10;
+  ttp.style.left=lx+"px"; ttp.style.top=ly+"px";
+  ttp.classList.add("visible");
+}
+function hideTip() { ttp.classList.remove("visible"); }
+
+function hitTest(cx, cy) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = cx-rect.left, my = cy-rect.top;
+  let best=null, bestD=Infinity;
+  hits.forEach(h => {
+    const d = Math.hypot(mx-h.x, my-h.y);
+    if(d < h.hit && d < bestD) { best=h; bestD=d; }
+  });
+  return best;
+}
+
+canvas.addEventListener("mousemove", e => {
+  const h = hitTest(e.clientX, e.clientY);
+  if(h) { canvas.style.cursor="pointer"; showTip(h.d,e.clientX,e.clientY); }
+  else  { canvas.style.cursor="default"; if(!pinned) hideTip(); }
+});
+canvas.addEventListener("click", e => {
+  const h = hitTest(e.clientX, e.clientY);
+  if(h) {
+    if(pinned && pinned.d===h.d) { pinned=null; hideTip(); }
+    else { pinned=h; showTip(h.d,e.clientX,e.clientY); }
+    draw();
+  } else if(pinned) { pinned=null; hideTip(); draw(); }
+});
+canvas.addEventListener("mouseleave", () => { if(!pinned) hideTip(); canvas.style.cursor="default"; });
+
+// Pills
+[["fp",v=>{fF=v;}],["mp",v=>{fM=v;}],["tp",v=>{fT=v;}]].forEach(([id,set])=>{
+  document.getElementById(id).querySelectorAll(".pill").forEach(p=>{
+    p.addEventListener("click", () => {
+      document.getElementById(id).querySelectorAll(".pill").forEach(q=>q.classList.remove("active"));
+      p.classList.add("active");
+      set(p.dataset.v);
+      pinned=null; hideTip(); draw();
+    });
+  });
+});
+
+draw();
+</script>
+</body>
+</html>

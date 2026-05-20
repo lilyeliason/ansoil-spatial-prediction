@@ -1,609 +1,701 @@
 """
-make_taylor_diagrams_v8.py
-ANSOIL — Taylor Diagrams, 3 separate files, one per variable family
+Taylor Diagram — ANSOIL Geochemical ML Project
+================================================
+Figure 1: Primary — moderate + strong targets only, single panel.
+Figure 2: Supplementary — 1×3 grid by domain family, all tiers.
 
-Scope: Strong + Moderate targets only, per family
-Each figure: ~6–12 targets — readable density for a Taylor diagram
-Numbers are the markers (filled circle = RF, open square = XGB)
-Lookup table below the diagram
-
-Outputs:
-  taylor_soil.png
-  taylor_metals.png
-  taylor_water.png
-
-Run:  python make_taylor_diagrams_v8.py
+Run from any directory; data paths are absolute.
 """
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.patches as mpatches
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
-# ── 0. Paths ──────────────────────────────────────────────────────────────────
-TARGETS_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/data/ansoil_targets.csv"
-LOG_TABLE_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/data/ansoil_log_targets.csv"
-RF_METRICS_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/results/aggregated/metrics_summary_rf.csv"
-XGB_METRICS_FILE = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/results/aggregated/metrics_summary_xgb.csv"
-
-# ── 1. Load ───────────────────────────────────────────────────────────────────
-targets = pd.read_csv(TARGETS_FILE)
-log_tbl = pd.read_csv(LOG_TABLE_FILE)
-rf = pd.read_csv(RF_METRICS_FILE)
-xgb = pd.read_csv(XGB_METRICS_FILE)
-
-dual_test = set(log_tbl[log_tbl["dual_test"] == True]["log_col"])
-obs_std = {
-    col: targets[col].dropna().std()
-    for col in targets.columns
-    if col != "sample_id" and targets[col].dropna().std() > 0
-}
-
-
-# ── 2. Taylor statistics ──────────────────────────────────────────────────────
-def taylor_stats(r2, rmse, sigma_obs):
-    if sigma_obs <= 0 or np.isnan(rmse):
-        return np.nan, np.nan, np.nan
-    R = np.sqrt(max(r2, 0)) if r2 >= 0 else -np.sqrt(-r2)
-    b = -2 * R * sigma_obs
-    c = sigma_obs**2 - rmse**2
-    disc = b**2 - 4 * c
-    if disc >= 0:
-        s1 = (-b + np.sqrt(disc)) / 2
-        s2 = (-b - np.sqrt(disc)) / 2
-        sigma_pred = s1 if s1 >= 0 else s2
-    else:
-        sigma_pred = R * sigma_obs
-    return R, sigma_pred / sigma_obs, rmse / sigma_obs
-
-
-rows = []
-for model, df in [("RF", rf), ("XGB", xgb)]:
-    for _, row in df.iterrows():
-        t = row["target"]
-        if t not in obs_std:
-            continue
-        rmse = (
-            row["cv_rmse_log_space_mean"]
-            if t in dual_test
-            else row["cv_rmse_orig_units_mean"]
-        )
-        R, sn, cRn = taylor_stats(row["cv_r2_mean"], rmse, obs_std[t])
-        rows.append(
-            dict(
-                target=t,
-                model=model,
-                R=R,
-                sigma_n=sn,
-                cRMSE_n=cRn,
-                r2=row["cv_r2_mean"],
-                tier=row["tier"],
-            )
-        )
-
-df_all = pd.DataFrame(rows).dropna(subset=["R", "sigma_n", "cRMSE_n"])
-df_all = df_all[df_all["sigma_n"].between(0, 2.5)]
-df_all["label"] = (
-    df_all["target"]
-    .map(
-        {
-            "d15n_air_permil": "δ¹⁵N",
-            "d13c_vpdb_permil": "δ¹³C",
-            "wt_percent_n": "wt% N",
-            "wt_percent_c": "wt% C",
-            "c_n_ratio": "C:N",
-            "log_cec_meq_100g": "CEC",
-            "ph_mq": "pH (MQ)",
-            "ph_kcl": "pH (KCl)",
-            "ph_cacl2": "pH (CaCl₂)",
-            "digest_mg_kg_ni2316": "Ni",
-            "digest_mg_kg_mg2852": "Mg",
-            "digest_mg_kg_ti3349": "Ti",
-            "digest_mg_kg_na5895": "Na",
-            "digest_mg_kg_k_7664": "K",
-            "digest_mg_kg_cr2835": "Cr",
-            "digest_mg_kg_al3082": "Al",
-            "digest_mg_kg_fe2599": "Fe",
-            "digest_mg_kg_co2286": "Co",
-            "digest_mg_kg_mn2576": "Mn",
-            "digest_mg_kg_ba4554": "Ba",
-            "digest_mg_kg_si2516": "Si",
-            "digest_mg_kg_v_2924": "V",
-            "digest_mg_kg_be3130": "Be",
-            "digest_mg_kg_zn2138": "Zn",
-            "digest_mg_kg_cu3247": "Cu",
-            "digest_mg_kg_as1890": "As",
-            "digest_mg_kg_b_2496": "B",
-            "log_digest_mg_kg_p_1774": "P",
-            "log_digest_mg_kg_sr4077": "Sr",
-            "log_digest_mg_kg_mo2020": "Mo",
-            "log_digest_mg_kg_ca3158": "Ca",
-            "log_digest_mg_kg_na5895": "Na*",
-            "log_digest_mg_kg_li6707": "Li",
-            "log_digest_mg_kg_pb2203": "Pb",
-            "log_digest_mg_kg_sb2068": "Sb",
-            "clr_total_mg_l_po4": "PO₄ tot",
-            "clr_hr_1_mg_l_po4": "PO₄ 1h",
-            "clr_hr_24_mg_l_po4": "PO₄ 24h",
-            "clr_total_mg_l_k": "K tot",
-            "clr_total_mg_l_na": "Na CLR",
-            "clr_total_mg_l_cl": "Cl tot",
-            "clr_total_mg_l_no3": "NO₃ tot",
-            "clr_total_mg_l_so4": "SO₄ tot",
-            "clr_total_mg_l_ca2": "Ca tot",
-            "clr_total_mg_l_sr2": "Sr tot",
-            "clr_hr_1_mg_l_cl": "Cl 1h",
-            "clr_hr_1_mg_l_no3": "NO₃ 1h",
-            "clr_hr_1_mg_l_so4": "SO₄ 1h",
-            "clr_hr_24_mg_l_cl": "Cl 24h",
-            "clr_hr_24_mg_l_no3": "NO₃ 24h",
-            "clr_hr_24_mg_l_so4": "SO₄ 24h",
-            "log_total_mg_l_na": "Na tot",
-            "log_total_mg_l_mg2": "Mg tot",
-            "log_total_mg_l_ca2": "Ca tot*",
-            "log_total_mg_l_cl": "Cl tot*",
-            "log_hr_24_mg_l_cl": "Cl 24h*",
-            "log_hr_1_mg_l_cl": "Cl 1h*",
-            "ec_us_cm": "EC",
-            "hr_24_mg_l_so4": "SO₄ 24h*",
-        }
-    )
-    .fillna(df_all["target"])
+mpl.rcParams.update(
+    {
+        "font.family": "DejaVu Sans",
+        "axes.titleweight": "semibold",
+        "figure.dpi": 150,
+    }
 )
 
-# Strong + moderate only
-df_sm = df_all[df_all["tier"].isin(["strong", "moderate"])].copy()
+# ── Absolute data paths ───────────────────────────────────────────────────
+RF_METRICS = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/results/aggregated/metrics_summary_rf.csv"
+XGB_METRICS = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/results/aggregated/metrics_summary_xgb.csv"
+TARGETS_CSV = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/data/ansoil_targets.csv"
+LOG_CSV = "/Users/lilyeliason/Documents/lemonte_lab/lab/ansoil-spatial-prediction/data/ansoil_log_targets.csv"
 
-# ── 3. Family definitions ─────────────────────────────────────────────────────
-FAMILIES = {
-    "soil": {
-        "title": "Soil Properties",
-        "subtitle": "pH, stable isotopes, C/N, CEC",
-        "outfile": "taylor_soil.png",
-        "targets": [
-            "ph_mq",
-            "ph_kcl",
-            "ph_cacl2",
-            "d15n_air_permil",
-            "d13c_vpdb_permil",
-            "wt_percent_n",
-            "wt_percent_c",
-            "c_n_ratio",
-            "log_cec_meq_100g",
-        ],
-    },
-    "metals": {
-        "title": "Digest Metals",
-        "subtitle": "mg kg⁻¹",
-        "outfile": "taylor_metals.png",
-        "targets": [
-            "digest_mg_kg_ni2316",
-            "digest_mg_kg_mg2852",
-            "digest_mg_kg_ti3349",
-            "digest_mg_kg_na5895",
-            "digest_mg_kg_k_7664",
-            "digest_mg_kg_cr2835",
-            "digest_mg_kg_al3082",
-            "digest_mg_kg_fe2599",
-            "digest_mg_kg_co2286",
-            "digest_mg_kg_mn2576",
-            "digest_mg_kg_ba4554",
-            "digest_mg_kg_si2516",
-            "digest_mg_kg_v_2924",
-            "digest_mg_kg_be3130",
-            "digest_mg_kg_zn2138",
-            "digest_mg_kg_cu3247",
-            "digest_mg_kg_as1890",
-            "digest_mg_kg_b_2496",
-            "log_digest_mg_kg_p_1774",
-            "log_digest_mg_kg_sr4077",
-            "log_digest_mg_kg_mo2020",
-            "log_digest_mg_kg_ca3158",
-            "log_digest_mg_kg_na5895",
-            "log_digest_mg_kg_li6707",
-            "log_digest_mg_kg_pb2203",
-            "log_digest_mg_kg_sb2068",
-        ],
-    },
-    "water": {
-        "title": "Water Chemistry",
-        "subtitle": "Ions, CLR extracts, leachate",
-        "outfile": "taylor_water.png",
-        "targets": [
-            "clr_total_mg_l_po4",
-            "clr_hr_1_mg_l_po4",
-            "clr_hr_24_mg_l_po4",
-            "clr_total_mg_l_k",
-            "clr_total_mg_l_na",
-            "clr_total_mg_l_cl",
-            "clr_total_mg_l_no3",
-            "clr_total_mg_l_so4",
-            "clr_total_mg_l_ca2",
-            "clr_total_mg_l_sr2",
-            "clr_hr_1_mg_l_cl",
-            "clr_hr_1_mg_l_no3",
-            "clr_hr_1_mg_l_so4",
-            "clr_hr_24_mg_l_cl",
-            "clr_hr_24_mg_l_no3",
-            "clr_hr_24_mg_l_so4",
-            "log_total_mg_l_na",
-            "log_total_mg_l_mg2",
-            "log_total_mg_l_ca2",
-            "log_total_mg_l_cl",
-            "log_hr_24_mg_l_cl",
-            "log_hr_1_mg_l_cl",
-            "ec_us_cm",
-            "hr_24_mg_l_so4",
-        ],
-    },
-}
-
-# ── 4. Style ──────────────────────────────────────────────────────────────────
+# ── Visual constants ──────────────────────────────────────────────────────
 TIER_COLORS = {
-    "strong": "#1565c0",
-    "moderate": "#2e7d32",
+    "strong": "#1A5276",
+    "moderate": "#1E8449",
+    "weak": "#BA4A00",
+    "unusable": "#95A5A6",
 }
-# Small jitter so RF circle and XGB square don't perfectly overlap
-JITTER_RAD = 0.012
-JITTER_SN = 0.015
+TIER_LABELS = {
+    "strong": r"Strong ($R^2 \geq 0.60$)",
+    "moderate": r"Moderate ($0.30 \leq R^2 < 0.60$)",
+    "weak": r"Weak ($0.00 \leq R^2 < 0.30$)",
+    "unusable": r"Unusable ($R^2 < 0$)",
+}
+MODEL_MARKERS = {"RF": "o", "XGBoost": "D"}
+MODEL_LABELS = {"RF": "Random Forest", "XGBoost": "XGBoost"}
+
+CORR_TICKS = np.array([0.0, 0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0])
+CRMSD_LEVELS = [0.25, 0.50, 0.75, 1.00]
+MAX_STD = 1.05  # all real data falls below 0.85
+
+FAMILY_ORDER = ["Soil Properties", "Digest Metals", "Water Chemistry"]
+
+# Single font size for ALL numeric labels on the diagram (arc + x-axis)
+TICK_FS = 8.0
+
+# ── Name mappings ─────────────────────────────────────────────────────────
+LABELS = {
+    "c_n_ratio": "C:N ratio",
+    "clr_hr_1_mg_l_cl": "Cl⁻ HR-1h (CLR)",
+    "clr_hr_1_mg_l_f": "F⁻ HR-1h (CLR)",
+    "clr_hr_1_mg_l_no3": "NO₃⁻ HR-1h (CLR)",
+    "clr_hr_1_mg_l_po4": "PO₄³⁻ HR-1h (CLR)",
+    "clr_hr_1_mg_l_so4": "SO₄²⁻ HR-1h (CLR)",
+    "clr_hr_24_mg_l_cl": "Cl⁻ HR-24h (CLR)",
+    "clr_hr_24_mg_l_f": "F⁻ HR-24h (CLR)",
+    "clr_hr_24_mg_l_no3": "NO₃⁻ HR-24h (CLR)",
+    "clr_hr_24_mg_l_po4": "PO₄³⁻ HR-24h (CLR)",
+    "clr_hr_24_mg_l_so4": "SO₄²⁻ HR-24h (CLR)",
+    "clr_total_mg_l_ca2": "Ca²⁺ total (CLR)",
+    "clr_total_mg_l_cl": "Cl⁻ total (CLR)",
+    "clr_total_mg_l_f": "F⁻ total (CLR)",
+    "clr_total_mg_l_k": "K⁺ total (CLR)",
+    "clr_total_mg_l_mg2": "Mg²⁺ total (CLR)",
+    "clr_total_mg_l_na": "Na⁺ total (CLR)",
+    "clr_total_mg_l_no3": "NO₃⁻ total (CLR)",
+    "clr_total_mg_l_po4": "PO₄³⁻ total (CLR)",
+    "clr_total_mg_l_so4": "SO₄²⁻ total (CLR)",
+    "clr_total_mg_l_sr2": "Sr²⁺ total (CLR)",
+    "d13c_vpdb_permil": "δ¹³C (VPDB, ‰)",
+    "d15n_air_permil": "δ¹⁵N (air, ‰)",
+    "digest_mg_kg_al3082": "Al (digest)",
+    "digest_mg_kg_as1890": "As (digest)",
+    "digest_mg_kg_b_2496": "B (digest)",
+    "digest_mg_kg_ba4554": "Ba (digest)",
+    "digest_mg_kg_be3130": "Be (digest)",
+    "digest_mg_kg_co2286": "Co (digest)",
+    "digest_mg_kg_cr2835": "Cr (digest)",
+    "digest_mg_kg_cu3247": "Cu (digest)",
+    "digest_mg_kg_fe2599": "Fe (digest)",
+    "digest_mg_kg_k_7664": "K (digest)",
+    "digest_mg_kg_mg2852": "Mg (digest)",
+    "digest_mg_kg_mn2576": "Mn (digest)",
+    "digest_mg_kg_na5895": "Na (digest)",
+    "digest_mg_kg_ni2316": "Ni (digest)",
+    "digest_mg_kg_si2516": "Si (digest)",
+    "digest_mg_kg_ti3349": "Ti (digest)",
+    "digest_mg_kg_v_2924": "V (digest)",
+    "digest_mg_kg_zn2138": "Zn (digest)",
+    "ec_us_cm": "EC (µS/cm)",
+    "hr_24_mg_l_so4": "SO₄²⁻ HR-24h",
+    "log_cec_meq_100g": "CEC (log)",
+    "log_digest_mg_kg_ca3158": "Ca (digest, log)",
+    "log_digest_mg_kg_hg1849": "Hg (digest, log)",
+    "log_digest_mg_kg_li6707": "Li (digest, log)",
+    "log_digest_mg_kg_mo2020": "Mo (digest, log)",
+    "log_digest_mg_kg_na5895": "Na (digest, log)",
+    "log_digest_mg_kg_p_1774": "P (digest, log)",
+    "log_digest_mg_kg_pb2203": "Pb (digest, log)",
+    "log_digest_mg_kg_sb2068": "Sb (digest, log)",
+    "log_digest_mg_kg_sn1899": "Sn (digest, log)",
+    "log_digest_mg_kg_sr4077": "Sr (digest, log)",
+    "log_digest_mg_kg_tl1908": "Tl (digest, log)",
+    "log_hr_1_mg_l_cl": "Cl⁻ HR-1h (log)",
+    "log_hr_1_mg_l_so4": "SO₄²⁻ HR-1h (log)",
+    "log_hr_24_mg_l_cl": "Cl⁻ HR-24h (log)",
+    "log_hr_24_mg_l_so4": "SO₄²⁻ HR-24h (log)",
+    "log_total_mg_l_ca2": "Ca²⁺ total (log)",
+    "log_total_mg_l_cl": "Cl⁻ total (log)",
+    "log_total_mg_l_mg2": "Mg²⁺ total (log)",
+    "log_total_mg_l_na": "Na⁺ total (log)",
+    "log_total_mg_l_so4": "SO₄²⁻ total (log)",
+    "ph_cacl2": "pH (CaCl₂)",
+    "ph_kcl": "pH (KCl)",
+    "ph_mq": "pH (MQ)",
+    "wt_percent_c": "wt% C",
+    "wt_percent_n": "wt% N",
+}
+SHORT = {
+    "c_n_ratio": "C:N",
+    "clr_hr_1_mg_l_cl": "Cl·1h",
+    "clr_hr_1_mg_l_f": "F·1h",
+    "clr_hr_1_mg_l_no3": "NO₃·1h",
+    "clr_hr_1_mg_l_po4": "PO₄·1h",
+    "clr_hr_1_mg_l_so4": "SO₄·1h",
+    "clr_hr_24_mg_l_cl": "Cl·24h",
+    "clr_hr_24_mg_l_f": "F·24h",
+    "clr_hr_24_mg_l_no3": "NO₃·24h",
+    "clr_hr_24_mg_l_po4": "PO₄·24h",
+    "clr_hr_24_mg_l_so4": "SO₄·24h",
+    "clr_total_mg_l_ca2": "Ca(t)",
+    "clr_total_mg_l_cl": "Cl(t)",
+    "clr_total_mg_l_f": "F(t)",
+    "clr_total_mg_l_k": "K(t)",
+    "clr_total_mg_l_mg2": "Mg(t)",
+    "clr_total_mg_l_na": "Na(t)",
+    "clr_total_mg_l_no3": "NO₃(t)",
+    "clr_total_mg_l_po4": "PO₄(t)",
+    "clr_total_mg_l_so4": "SO₄(t)",
+    "clr_total_mg_l_sr2": "Sr(t)",
+    "d13c_vpdb_permil": "δ¹³C",
+    "d15n_air_permil": "δ¹⁵N",
+    "digest_mg_kg_al3082": "Al",
+    "digest_mg_kg_as1890": "As",
+    "digest_mg_kg_b_2496": "B",
+    "digest_mg_kg_ba4554": "Ba",
+    "digest_mg_kg_be3130": "Be",
+    "digest_mg_kg_co2286": "Co",
+    "digest_mg_kg_cr2835": "Cr",
+    "digest_mg_kg_cu3247": "Cu",
+    "digest_mg_kg_fe2599": "Fe",
+    "digest_mg_kg_k_7664": "K",
+    "digest_mg_kg_mg2852": "Mg",
+    "digest_mg_kg_mn2576": "Mn",
+    "digest_mg_kg_na5895": "Na",
+    "digest_mg_kg_ni2316": "Ni",
+    "digest_mg_kg_si2516": "Si",
+    "digest_mg_kg_ti3349": "Ti",
+    "digest_mg_kg_v_2924": "V",
+    "digest_mg_kg_zn2138": "Zn",
+    "ec_us_cm": "EC",
+    "hr_24_mg_l_so4": "SO₄·24h",
+    "log_cec_meq_100g": "CEC†",
+    "log_digest_mg_kg_ca3158": "Ca†",
+    "log_digest_mg_kg_hg1849": "Hg†",
+    "log_digest_mg_kg_li6707": "Li†",
+    "log_digest_mg_kg_mo2020": "Mo†",
+    "log_digest_mg_kg_na5895": "Na†",
+    "log_digest_mg_kg_p_1774": "P†",
+    "log_digest_mg_kg_pb2203": "Pb†",
+    "log_digest_mg_kg_sb2068": "Sb†",
+    "log_digest_mg_kg_sn1899": "Sn†",
+    "log_digest_mg_kg_sr4077": "Sr†",
+    "log_digest_mg_kg_tl1908": "Tl†",
+    "log_hr_1_mg_l_cl": "Cl·1h†",
+    "log_hr_1_mg_l_so4": "SO₄·1h†",
+    "log_hr_24_mg_l_cl": "Cl·24h†",
+    "log_hr_24_mg_l_so4": "SO₄·24h†",
+    "log_total_mg_l_ca2": "Ca(t)†",
+    "log_total_mg_l_cl": "Cl(t)†",
+    "log_total_mg_l_mg2": "Mg(t)†",
+    "log_total_mg_l_na": "Na(t)†",
+    "log_total_mg_l_so4": "SO₄(t)†",
+    "ph_cacl2": "pH-Ca",
+    "ph_kcl": "pH-K",
+    "ph_mq": "pH-MQ",
+    "wt_percent_c": "wt%C",
+    "wt_percent_n": "wt%N",
+}
 
 
-def _jitter(th, sn, model):
-    s = -1 if model == "RF" else +1
-    return th + s * JITTER_RAD, sn + s * JITTER_SN
+# ── Data helpers ──────────────────────────────────────────────────────────
 
 
-# ── 5. Draw Taylor panel ──────────────────────────────────────────────────────
-def draw_taylor(ax, df_pts, r_max, rmse_contours=(0.5, 1.0)):
+def assign_tier(r2):
+    if r2 >= 0.60:
+        return "strong"
+    if r2 >= 0.30:
+        return "moderate"
+    if r2 >= 0.00:
+        return "weak"
+    return "unusable"
+
+
+def compute_sigma_n(cv_rmse, sigma_obs, r):
+    disc = np.maximum(r**2 - 1.0 + (cv_rmse / sigma_obs) ** 2, 0.0)
+    return r + np.sqrt(disc)
+
+
+def family(t):
+    if t.startswith("ph_") or t in (
+        "d15n_air_permil",
+        "d13c_vpdb_permil",
+        "wt_percent_n",
+        "wt_percent_c",
+        "c_n_ratio",
+        "log_cec_meq_100g",
+    ):
+        return "Soil Properties"
+    if t.startswith("digest_") or t.startswith("log_digest_"):
+        return "Digest Metals"
+    return "Water Chemistry"
+
+
+def load_data():
+    rf = pd.read_csv(RF_METRICS)
+    xgb = pd.read_csv(XGB_METRICS)
+    tgt = pd.read_csv(TARGETS_CSV)
+    log = pd.read_csv(LOG_CSV)
+    sigma_obs = tgt.drop(columns=["sample_id"]).std(ddof=1)
+    all_log_cols = set(log["log_col"])
+    rows = []
+    for model_label, df in [("RF", rf), ("XGBoost", xgb)]:
+        for _, row in df.iterrows():
+            t = row["target"]
+            r2 = row["cv_r2_mean"]
+            # KEY FIX: for r2<0, r is negative (anti-correlated), not zero.
+            # We don't have raw Pearson r, so approximate as -sqrt(|r2|) for r2<0.
+            r = np.sqrt(abs(r2)) * (1.0 if r2 >= 0 else -1.0)
+            if t in all_log_cols:
+                cv_rmse = row["cv_rmse_log_space_mean"]
+                s_obs = sigma_obs.get(t, np.nan)
+            else:
+                cv_rmse = row["cv_rmse_orig_units_mean"]
+                s_obs = sigma_obs.get(t, np.nan)
+            if pd.isna(s_obs) or s_obs <= 0:
+                continue
+            sigma_n = float(compute_sigma_n(cv_rmse, s_obs, r))
+            rows.append(
+                {
+                    "target": t,
+                    "short": SHORT.get(t, t),
+                    "label": LABELS.get(t, t),
+                    "model": model_label,
+                    "r2": round(r2, 4),
+                    "r": round(r, 4),
+                    "sigma_n": round(sigma_n, 4),
+                    "tier": assign_tier(r2),
+                    "family": family(t),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+# ── Shared polar axes setup ───────────────────────────────────────────────
+
+
+def _setup_taylor_axes(ax, max_std=MAX_STD):
     """
-    Clean Taylor diagram. Numbers are the markers.
-    RF  = filled circle, white number inside.
-    XGB = open square, coloured number inside.
-    Returns list of (idx, label, tier) for the lookup table.
+    Standard Taylor orientation:
+      theta=0 (east/right) → r=1.0
+      theta=90° (north/top) → r=0.0
+    All numeric labels (arc ticks + radial ring labels) use TICK_FS.
     """
-    ax.set_facecolor("white")
+    ax.set_theta_direction(1)
+    ax.set_theta_zero_location("E")
     ax.set_thetamin(0)
     ax.set_thetamax(90)
-    ths = np.linspace(0, np.pi / 2, 300)
+    ax.set_rlim(0, max_std)
+    ax.set_facecolor("white")
 
-    # ── Grid: sigma arcs ──
-    for rv in np.arange(0.2, r_max + 0.01, 0.2):
-        ax.plot(ths, np.full_like(ths, rv), color="#f0f0f0", lw=0.6, zorder=0)
-        ax.text(
-            np.pi / 2 + 0.03,
-            rv,
-            f"{rv:.1f}",
-            ha="left",
-            va="center",
-            fontsize=5.5,
-            color="#bbbbbb",
-        )
+    # Correlation arc tick labels — TICK_FS
+    theta_deg = np.degrees(np.arccos(CORR_TICKS))
+    ax.set_thetagrids(
+        theta_deg,
+        labels=[str(c) for c in CORR_TICKS],
+        fontsize=TICK_FS,
+        color="#444444",
+    )
 
-    # ── Hard outer boundary ──
-    ax.plot(ths, np.full_like(ths, r_max), color="#dddddd", lw=0.8, zorder=1)
+    # σ_n ring labels along the x-axis (angle=0) — same TICK_FS
+    std_vals = np.arange(0.25, max_std + 0.01, 0.25)
+    ax.set_rgrids(
+        std_vals,
+        labels=[f"{v:.2f}" for v in std_vals],
+        angle=0,
+        fontsize=TICK_FS,
+        color="#666666",
+    )
 
-    # ── cRMSE arcs ──
-    for rc in rmse_contours:
-        ct = np.cos(ths)
-        disc = ct**2 - (1 - rc**2)
-        r_arc = np.where(disc >= 0, ct + np.sqrt(np.where(disc >= 0, disc, 0)), np.nan)
-        r_arc = np.where((r_arc >= 0) & (r_arc <= r_max), r_arc, np.nan)
-        ax.plot(ths, r_arc, linestyle=":", color="#cccccc", lw=1.0, zorder=1)
-        # Label near the arc, at ~68°, inside the boundary
-        th_l = np.radians(68)
-        d_l = np.cos(th_l) ** 2 - (1 - rc**2)
-        if d_l >= 0:
-            r_l = min(np.cos(th_l) + np.sqrt(d_l), r_max - 0.06)
-            if r_l > 0.15:
-                ax.text(
-                    th_l,
-                    r_l,
-                    f"cRMSE = {rc}",
-                    ha="center",
-                    va="center",
-                    fontsize=6,
-                    color="#aaaaaa",
-                    style="italic",
-                    bbox=dict(facecolor="white", edgecolor="none", pad=0.8),
-                    zorder=2,
-                )
-
-    # ── Reference std = 1 arc ──
-    ax.plot(ths, np.ones_like(ths), linestyle="--", color="#666666", lw=1.1, zorder=2)
-
-    # ── Correlation radials, clipped to r_max ──
-    for r_val in [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99]:
-        th = np.arccos(r_val)
-        ax.plot([th, th], [0, r_max], color="#f0f0f0", lw=0.6, zorder=0)
-        ax.text(
-            th,
-            r_max + 0.07,
-            f"{r_val}",
-            ha="center",
-            va="bottom",
-            fontsize=6,
-            color="#888888",
-        )
-
-    # ── Axis labels ──
+    # Add 0 label at the origin end of the x-axis
     ax.text(
-        np.radians(45),
-        r_max + 0.22,
-        "Correlation (R)",
+        0,
+        0,
+        "0",
+        fontsize=TICK_FS,
+        color="#666666",
         ha="center",
-        va="center",
-        fontsize=9,
-        fontweight="bold",
-        color="#333333",
-    )
-    ax.text(
-        np.radians(83),
-        r_max * 0.35,
-        "Normalised\nStd. Dev.",
-        ha="center",
-        va="center",
-        fontsize=7,
-        fontweight="bold",
-        color="#333333",
+        va="top",
+        transform=ax.transData,
+        zorder=10,
     )
 
-    # ── OBS reference point ──
-    ax.scatter([0], [1.0], marker="*", s=200, color="#111111", zorder=15, clip_on=False)
-    ax.text(
-        np.radians(1.5),
-        1.08,
-        "OBS",
-        fontsize=7.5,
-        fontweight="bold",
-        color="#111111",
-        ha="left",
-        va="bottom",
-    )
-
-    # ── Data points ──
-    order = df_pts.groupby("target")["R"].mean().sort_values(ascending=False).index
-
-    key_items = []
-    for idx, tgt in enumerate(order, start=1):
-        sub = df_pts[df_pts["target"] == tgt]
-        if sub.empty:
-            continue
-        tier = sub.iloc[0]["tier"]
-        lbl = sub.iloc[0]["label"]
-        color = TIER_COLORS.get(tier, "#999999")
-
-        # Slightly smaller font/marker for two-digit indices
-        fsize = 6.0 if idx >= 10 else 7.5
-        msz = 170 if idx >= 10 else 140
-
-        for _, row in sub.iterrows():
-            if np.isnan(row["R"]) or np.isnan(row["sigma_n"]):
-                continue
-            th = np.arccos(np.clip(row["R"], -1, 1))
-            sn = row["sigma_n"]
-            th_j, sn_j = _jitter(th, sn, row["model"])
-            # Clip to boundary if needed
-            sn_j = min(sn_j, r_max - 0.04)
-
-            if row["model"] == "RF":
-                ax.scatter(
-                    th_j,
-                    sn_j,
-                    marker="o",
-                    s=msz,
-                    color=color,
-                    alpha=0.93,
-                    zorder=8,
-                    edgecolors="white",
-                    linewidths=0.4,
-                )
-                ax.text(
-                    th_j,
-                    sn_j,
-                    str(idx),
-                    ha="center",
-                    va="center",
-                    fontsize=fsize,
-                    fontweight="bold",
-                    color="white",
-                    zorder=9,
-                )
-            else:
-                ax.scatter(
-                    th_j,
-                    sn_j,
-                    marker="s",
-                    s=msz + 25,
-                    facecolor="white",
-                    alpha=1.0,
-                    zorder=8,
-                    edgecolors=color,
-                    linewidths=1.5,
-                )
-                ax.text(
-                    th_j,
-                    sn_j,
-                    str(idx),
-                    ha="center",
-                    va="center",
-                    fontsize=fsize,
-                    fontweight="bold",
-                    color=color,
-                    zorder=9,
-                )
-
-        key_items.append((idx, lbl, tier))
-
-    ax.set_rlim(0, r_max)
-    ax.set_yticks([])
-    ax.set_xticks([])
+    ax.grid(True, color="#d0d0d0", linewidth=0.35, alpha=0.7, zorder=0)
+    ax.set_axisbelow(True)
     ax.spines["polar"].set_visible(False)
-    return key_items
 
-
-# ── 6. Make one figure ────────────────────────────────────────────────────────
-def make_figure(family_key):
-    fam = FAMILIES[family_key]
-    df_fam = df_sm[df_sm["target"].isin(fam["targets"])].copy()
-    n_tgts = df_fam["target"].nunique()
-
-    if n_tgts == 0:
-        print(f"  {family_key}: no strong/moderate targets found — skipping.")
-        return
-
-    # r_max: 95th percentile of sigma_n + padding, minimum 0.8
-    r_max = max(float(df_fam["sigma_n"].quantile(0.95)) + 0.18, 0.80)
-    print(f"  {family_key}: {n_tgts} targets, r_max = {r_max:.3f}")
-
-    # ── Figure layout ──────────────────────────────────────────────────────
-    # Single 7×8" figure.
-    # Polar panel: top 62% of height, centred in left 80% of width
-    # Lookup table: below polar panel
-    # Legend strip: very bottom
-    FIG_W, FIG_H = 7.5, 8.5
-
-    fig = plt.figure(figsize=(FIG_W, FIG_H), facecolor="white")
-
-    # Polar axes: [left, bottom, width, height] in figure fraction
-    ax = fig.add_axes([0.06, 0.30, 0.72, 0.62], projection="polar")
-
-    key_items = draw_taylor(ax, df_fam, r_max=r_max, rmse_contours=(0.5, 1.0))
-
-    # ── Title ──────────────────────────────────────────────────────────────
-    ax.set_title(
-        f"{fam['title']}\n{fam['subtitle']}  |  Strong & Moderate targets  |  ANSOIL",
-        fontsize=10,
-        fontweight="bold",
-        pad=24,
-        color="#111111",
-        loc="center",
+    # Outer boundary arc (scatter avoids matplotlib fill artefact)
+    t_bnd = np.linspace(0, np.pi / 2, 600)
+    ax.scatter(
+        t_bnd, np.full_like(t_bnd, max_std), s=0.5, c="#888888", linewidths=0, zorder=3
     )
+    ax.plot([0, 0], [0, max_std], color="#888", lw=0.9, zorder=3)
+    ax.plot([np.pi / 2, np.pi / 2], [0, max_std], color="#888", lw=0.9, zorder=3)
 
-    # ── Lookup table ───────────────────────────────────────────────────────
-    # Force draw so get_position() is accurate
-    fig.canvas.draw()
-    ax_pos = ax.get_position()  # Bbox in figure fraction
-
-    n = len(key_items)
-    n_cols = 2 if n <= 8 else 3
-    n_rows = -(-n // n_cols)
-
-    # Spacing in inches → figure fraction
-    FONT = 8.0  # pt
-    lh = FONT * 1.6 / 72 / FIG_H  # line height in figure fraction
-    sw = 0.18 / FIG_W  # swatch width
-    gap = 0.06 / FIG_W  # gap
-    col_w = ax_pos.width / n_cols
-
-    tbl_top = ax_pos.y0 - 0.18 / FIG_H  # start just below axis
-
-    # "Target index" header
-    fig.text(
-        ax_pos.x0,
-        tbl_top + lh * 0.5,
-        "Target index",
-        fontsize=FONT - 0.5,
-        fontweight="bold",
-        color="#555555",
-        va="bottom",
-        ha="left",
-        transform=fig.transFigure,
+    # σ_n = 1.0 reference arc
+    t_ref = np.linspace(0, np.pi / 2, 400)
+    ax.scatter(
+        t_ref,
+        np.ones_like(t_ref),
+        s=0.7,
+        c="#555555",
+        linewidths=0,
+        alpha=0.7,
+        zorder=3,
     )
+    return ax
 
-    for i, (idx, lbl, tier) in enumerate(key_items):
-        col = i // n_rows
-        row = i % n_rows
-        x = ax_pos.x0 + col * col_w
-        y = tbl_top - row * lh
-        c = TIER_COLORS.get(tier, "#999999")
 
-        # Colour swatch
-        fig.add_artist(
-            mpatches.FancyBboxPatch(
-                (x, y - lh * 0.30),
-                sw,
-                lh * 0.60,
-                boxstyle="square,pad=0",
-                transform=fig.transFigure,
-                facecolor=c,
-                edgecolor="none",
-                zorder=5,
+def _draw_crmsd_contours(ax, max_std=MAX_STD, levels=None):
+    if levels is None:
+        levels = CRMSD_LEVELS
+    phi = np.linspace(0, 2 * np.pi, 4000)
+    for crmsd in levels:
+        cx = 1.0 + crmsd * np.cos(phi)
+        cy = 0.0 + crmsd * np.sin(phi)
+        r_arc = np.sqrt(cx**2 + cy**2)
+        t_arc = np.arctan2(cy, cx)
+        mask = (t_arc >= 0) & (t_arc <= np.pi / 2) & (r_arc <= max_std)
+        if mask.sum() < 5:
+            continue
+        idx = np.argsort(t_arc[mask])
+        t_s = t_arc[mask][idx]
+        r_s = r_arc[mask][idx]
+        ax.scatter(t_s, r_s, s=0.3, c="#aaaaaa", linewidths=0, alpha=0.9, zorder=2)
+        if r_s[0] < max_std * 0.97 and t_s[0] < np.radians(18):
+            ax.text(
+                t_s[0] + np.radians(1.5),
+                r_s[0] + 0.02,
+                f"{crmsd:.2f}",
+                fontsize=TICK_FS - 1.5,
+                color="#aaaaaa",
+                ha="left",
+                va="bottom",
+                zorder=10,
+            )
+
+
+def _draw_reference_point(ax):
+    ax.scatter([0.0], [1.0], marker="*", s=140, c="black", linewidths=0, zorder=8)
+
+
+def _scatter_model(ax, df_model, model_name, marker_size=55, alpha=0.92):
+    marker = MODEL_MARKERS[model_name]
+    for _, row in df_model.iterrows():
+        theta = float(np.arccos(np.clip(row["r"], -1.0, 1.0)))
+        r_val = float(np.clip(row["sigma_n"], 0.0, MAX_STD))
+        ax.scatter(
+            theta,
+            r_val,
+            marker=marker,
+            s=marker_size,
+            c=TIER_COLORS[row["tier"]],
+            alpha=alpha,
+            edgecolors="white",
+            linewidths=0.65,
+            zorder=5,
+        )
+
+
+# ── Legend builders ───────────────────────────────────────────────────────
+
+
+def _make_legend_handles(include_obs=True):
+    handles = [
+        Line2D(
+            [0],
+            [0],
+            marker=MODEL_MARKERS[m],
+            color="w",
+            markerfacecolor="#555555",
+            markeredgecolor="white",
+            markeredgewidth=0.5,
+            markersize=7,
+            label=MODEL_LABELS[m],
+        )
+        for m in ["RF", "XGBoost"]
+    ]
+    if include_obs:
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                marker="*",
+                color="w",
+                markerfacecolor="black",
+                markersize=9,
+                label="Observation (ref.)",
             )
         )
-        # Index
-        fig.text(
-            x + sw + gap,
-            y,
-            f"{idx}.",
-            fontsize=FONT,
-            fontweight="bold",
-            color=c,
-            va="center",
-            ha="left",
-            transform=fig.transFigure,
+    tier_handles = [
+        Patch(
+            facecolor=TIER_COLORS[t],
+            edgecolor="white",
+            linewidth=0.5,
+            label=TIER_LABELS[t],
         )
-        # Label
-        fig.text(
-            x + sw + gap + 0.16 / FIG_W,
-            y,
-            lbl,
-            fontsize=FONT,
-            color="#222222",
-            va="center",
-            ha="left",
-            transform=fig.transFigure,
+        for t in ["strong", "moderate", "weak", "unusable"]
+    ]
+    return handles, tier_handles
+
+
+# ── Figure 1 ──────────────────────────────────────────────────────────────
+
+
+def make_figure1(df, output_path="figure1_taylor.pdf"):
+    df_plot = df[df["tier"].isin(["strong", "moderate"])].copy()
+    n_strong = int(df_plot[df_plot["tier"] == "strong"]["target"].nunique())
+    n_mod = int(df_plot[df_plot["tier"] == "moderate"]["target"].nunique())
+
+    fig = plt.figure(figsize=(7.0, 8.2))
+    # Axes box: generous bottom margin for x-axis label + tick labels + legends
+    ax = fig.add_axes([0.13, 0.28, 0.76, 0.60], projection="polar")
+
+    _setup_taylor_axes(ax)
+    _draw_crmsd_contours(ax)
+    _draw_reference_point(ax)
+
+    for model in ["RF", "XGBoost"]:
+        _scatter_model(
+            ax, df_plot[df_plot["model"] == model], model, marker_size=55, alpha=0.92
         )
 
-    # ── Legend ─────────────────────────────────────────────────────────────
-    leg_handles = [
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor="#555",
-            markersize=9,
-            label="Random Forest",
-        ),
-        Line2D(
-            [0],
-            [0],
-            marker="s",
-            color="w",
-            markerfacecolor="white",
-            markeredgecolor="#555",
-            markeredgewidth=1.3,
-            markersize=9,
-            label="XGBoost",
-        ),
-        mpatches.Patch(color=TIER_COLORS["strong"], label="Strong (R² ≥ 0.60)"),
-        mpatches.Patch(color=TIER_COLORS["moderate"], label="Moderate (R² 0.30–0.60)"),
-    ]
-    fig.legend(
-        handles=leg_handles,
-        loc="lower center",
-        ncol=4,
-        fontsize=8,
+    # No point labels
+
+    # ── Axis annotations ──────────────────────────────────────────────────
+    # y-axis label (left side, rotated)
+    fig.text(
+        0.03,
+        0.58,
+        r"Normalized standard deviation  $\sigma_n$",
+        ha="center",
+        va="center",
+        fontsize=9.0,
+        color="#333333",
+        rotation=90,
+    )
+
+    # x-axis label placed below the x-axis tick numbers
+    # In figure coordinates this sits beneath the polar axes bottom edge
+    fig.text(
+        0.52,
+        0.175,
+        r"Normalized standard deviation  $\sigma_n$",
+        ha="center",
+        va="top",
+        fontsize=9.0,
+        color="#333333",
+    )
+
+    # Centered RMSD label inside the diagram
+    fig.text(
+        0.195,
+        0.52,
+        "Centered\nRMSD",
+        ha="center",
+        va="center",
+        fontsize=6.5,
+        color="#aaaaaa",
+        style="italic",
+    )
+
+    # ── Title block ───────────────────────────────────────────────────────
+    fig.text(
+        0.50,
+        0.970,
+        "Taylor Diagram \u2014 Moderate and Strong Targets",
+        ha="center",
+        va="top",
+        fontsize=11.5,
+        fontweight="semibold",
+        color="#1a1a1a",
+    )
+
+    fig.text(
+        0.50,
+        0.948,
+        f"RF and XGBoost predictions vs. Antarctic soil observations  "
+        f"({n_strong} strong, {n_mod} moderate of 68 total)  "
+        f"|  \u2020\u2009log-transformed",
+        ha="center",
+        va="top",
+        fontsize=7.8,
+        color="#555555",
+    )
+
+    # ── Legends ───────────────────────────────────────────────────────────
+    model_handles, tier_handles = _make_legend_handles(include_obs=True)
+
+    leg1 = fig.legend(
+        handles=model_handles,
+        title="Model",
+        loc="lower left",
+        bbox_to_anchor=(0.04, 0.01),
+        fontsize=7.5,
+        title_fontsize=8.0,
         frameon=True,
         framealpha=0.95,
-        edgecolor="#dddddd",
-        bbox_to_anchor=(0.5, 0.01),
+        edgecolor="#cccccc",
+        ncol=1,
+    )
+
+    fig.legend(
+        handles=tier_handles,
+        title="Performance tier",
+        loc="lower right",
+        bbox_to_anchor=(0.97, 0.01),
+        fontsize=7.5,
+        title_fontsize=8.0,
+        frameon=True,
+        framealpha=0.95,
+        edgecolor="#cccccc",
+        ncol=2,
+    )
+
+    fig.add_artist(leg1)
+
+    fig.savefig(
+        output_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none"
+    )
+    print(f"Figure 1 saved \u2192 {output_path}")
+    return fig
+
+
+# ── Figure 2 ──────────────────────────────────────────────────────────────
+
+
+def make_figure2(df, output_path="figure2_taylor_supplementary.pdf"):
+    fig = plt.figure(figsize=(16.0, 7.0))
+
+    # top=0.78 leaves ~22% of figure above the panels for the 3 header rows.
+    # The rows themselves are spaced tightly so they sit close to the panels.
+    gs = fig.add_gridspec(
+        1, 3, left=0.04, right=0.97, bottom=0.17, top=0.78, wspace=0.30
+    )
+
+    for col, fam in enumerate(FAMILY_ORDER):
+        ax = fig.add_subplot(gs[0, col], projection="polar")
+        df_fam = df[df["family"] == fam].copy()
+
+        _setup_taylor_axes(ax)
+        _draw_crmsd_contours(ax, levels=[0.25, 0.50, 0.75])
+        _draw_reference_point(ax)
+
+        for model in ["RF", "XGBoost"]:
+            _scatter_model(
+                ax, df_fam[df_fam["model"] == model], model, marker_size=40, alpha=0.90
+            )
+
+        # No point labels
+
+        n_vars = int(df_fam["target"].nunique())
+        ax.set_title(
+            f"{fam}\n({n_vars} variable{'s' if n_vars != 1 else ''})",
+            fontsize=10.0,
+            pad=14,
+            color="#222222",
+            fontweight="semibold",
+        )
+
+    # Shared x-axis label
+    fig.text(
+        0.50,
+        0.115,
+        r"Normalized standard deviation  $\sigma_n$",
+        ha="center",
+        va="top",
+        fontsize=9.0,
+        color="#333333",
+    )
+
+    # ── Header rows — snug above the panel titles ─────────────────────────
+    # gs top=0.78, so we place rows at 0.990 → 0.960 → 0.930,
+    # all above 0.78, giving ~3 lines of breathing room between row 3 and panels.
+
+    # Row 1: main title
+    fig.text(
+        0.50,
+        0.990,
+        "Taylor Diagram \u2014 All Targets by Domain Family  (Supplementary)",
+        ha="center",
+        va="top",
+        fontsize=12.0,
+        fontweight="semibold",
+        color="#1a1a1a",
+    )
+
+    # Row 2: study info — tightly below row 1
+    fig.text(
+        0.50,
+        0.958,
+        r"RF and XGBoost predictions vs. Antarctic soil observations  |  "
+        r"Leave-one-location-out CV  |  $n = 171$  |  "
+        r"Normalized $\sigma_n$  |  † log-transformed",
+        ha="center",
+        va="top",
+        fontsize=8.0,
+        color="#555555",
+    )
+
+    # Row 3: axis key — tightly below row 2
+    fig.text(
+        0.50,
+        0.926,
+        r"Arc: correlation $r$   |   Radial distance: $\sigma_n$   |   "
+        r"Dashed arcs: centered RMSD   |   Circle = RF,  Diamond = XGBoost",
+        ha="center",
+        va="top",
+        fontsize=7.5,
+        color="#888888",
+        style="italic",
+    )
+
+    # ── Shared legend — no "Observation (ref.)" ───────────────────────────
+    model_handles, tier_handles = _make_legend_handles(include_obs=False)
+
+    fig.legend(
+        handles=model_handles + [Line2D([0], [0], color="none")] + tier_handles,
+        loc="lower center",
+        bbox_to_anchor=(0.50, 0.005),
+        fontsize=7.5,
+        frameon=True,
+        framealpha=0.95,
+        edgecolor="#cccccc",
+        ncol=3,
+        columnspacing=1.6,
+        handletextpad=0.5,
     )
 
     fig.savefig(
-        fam["outfile"], dpi=200, bbox_inches="tight", facecolor="white", pad_inches=0.2
+        output_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none"
     )
-    print(f"  Saved: {fam['outfile']}")
-    plt.close(fig)
+    print(f"Figure 2 saved \u2192 {output_path}")
+    return fig
 
 
-# ── 7. Run ────────────────────────────────────────────────────────────────────
-print("Generating Taylor diagrams (strong + moderate, per family)...\n")
-for key in ("soil", "metals", "water"):
-    print(f"Family: {key}")
-    make_figure(key)
-print("\nDone.")
+# ── Entry point ───────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    df = load_data()
+
+    print("=== Tier distribution ===")
+    print(
+        df.groupby(["family", "tier"])["target"]
+        .nunique()
+        .unstack(fill_value=0)
+        .to_string()
+    )
+    print()
+    print("=== r range ===")
+    print(df["r"].describe().round(4).to_string())
+    print()
+    print("=== Strong targets ===")
+    print(
+        df[df["tier"] == "strong"][
+            ["target", "label", "model", "r2", "r", "sigma_n"]
+        ].to_string(index=False)
+    )
+
+    fig1 = make_figure1(df)
+    fig2 = make_figure2(df)
+    plt.show()

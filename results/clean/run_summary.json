@@ -1,0 +1,108 @@
+{
+  "reproduction": {
+    "pairs_checked": 670,
+    "max_abs_diff": 3.7470027081099033e-16,
+    "failures": 0,
+    "samples_per_target_min": 171,
+    "samples_per_target_max": 171,
+    "all_samples_unique": true,
+    "folds": [
+      28
+    ]
+  },
+  "tiers": {
+    "rf": {
+      "reported": {
+        "n_properties": 67,
+        "mean_r2": 0.16063422104798805,
+        "median_r2": 0.14384834130755336,
+        "strong": 1,
+        "moderate": 12,
+        "weak": 43,
+        "unusable": 11,
+        "above_0.30": 13,
+        "at_or_below_0": 11,
+        "mean_cross_seed_sd": 0.013430735300049365,
+        "median_cross_seed_sd": 0.012694296030159688
+      },
+      "native": {
+        "n_properties": 67,
+        "mean_r2": 0.12805386760316548,
+        "median_r2": 0.1043377851886776,
+        "strong": 1,
+        "moderate": 12,
+        "weak": 35,
+        "unusable": 19,
+        "above_0.30": 13,
+        "at_or_below_0": 19,
+        "mean_cross_seed_sd": 0.013430735300049365,
+        "median_cross_seed_sd": 0.012694296030159688
+      }
+    },
+    "xgb": {
+      "reported": {
+        "n_properties": 67,
+        "mean_r2": 0.2032762775914979,
+        "median_r2": 0.18966521591246763,
+        "strong": 1,
+        "moderate": 19,
+        "weak": 39,
+        "unusable": 8,
+        "above_0.30": 20,
+        "at_or_below_0": 8,
+        "mean_cross_seed_sd": 0.01340380795878117,
+        "median_cross_seed_sd": 0.011471978378344955
+      },
+      "native": {
+        "n_properties": 67,
+        "mean_r2": 0.16562343398014276,
+        "median_r2": 0.1301111044023999,
+        "strong": 1,
+        "moderate": 17,
+        "weak": 32,
+        "unusable": 17,
+        "above_0.30": 18,
+        "at_or_below_0": 17,
+        "mean_cross_seed_sd": 0.01340380795878117,
+        "median_cross_seed_sd": 0.011471978378344955
+      }
+    }
+  },
+  "winner_tally_reported": {
+    "xgb": 43,
+    "tie": 21,
+    "rf": 3
+  },
+  "winner_tally_native": {
+    "xgb": 40,
+    "tie": 22,
+    "rf": 5
+  },
+  "n_mappable": 20,
+  "n_not_mappable": 47,
+  "grid": {
+    "rf": {
+      "maps_present": 57,
+      "maps_kept_under_new_gate": 11,
+      "maps_with_impossible_negatives": 0,
+      "maps_with_undefined_sd": 0,
+      "maps_with_nonpositive_r2": 1,
+      "maps_outside_training_range": 1
+    },
+    "xgb": {
+      "maps_present": 61,
+      "maps_kept_under_new_gate": 17,
+      "maps_with_impossible_negatives": 4,
+      "maps_with_undefined_sd": 2,
+      "maps_with_nonpositive_r2": 2,
+      "maps_outside_training_range": 11
+    },
+    "grid_cells": 15769,
+    "grid_cells_by_acbr": {
+      "Transantarctic Mountains": 9248,
+      "South Victoria Land": 5614,
+      "North Victoria Land": 829,
+      "North-west Antarctic Peninsula": 78
+    }
+  }
+}
